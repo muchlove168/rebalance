@@ -219,6 +219,7 @@
   <nav class="scroll-x border-b border-[color:var(--line-soft)] mb-5">
     <div class="flex gap-6 min-w-max px-1">
       <button class="tab-btn active" data-tab="tab-holdings">📊 雙軌持倉</button>
+      <button class="tab-btn" data-tab="tab-ledger">📒 建倉紀錄</button>
       <button class="tab-btn" data-tab="tab-health">🩺 健檢結果</button>
       <button class="tab-btn" data-tab="tab-trend">📈 走勢追蹤</button>
       <button class="tab-btn" data-tab="tab-balance">💰 資產負債</button>
@@ -270,7 +271,10 @@
       <!-- 1B 台股衛星艙 -->
       <div class="card-inset p-3 space-y-3">
         <div class="flex items-center justify-between">
-          <span class="num-label">🇹🇼 台股衛星艙 · 00631L 正二</span>
+          <div class="flex flex-col">
+            <span class="num-label">🇹🇼 台股衛星艙 · 00631L 正二</span>
+            <span id="t1_ledger_badge" class="text-[10px] text-[color:var(--cyan)] mt-0.5 hidden">📒 由建倉紀錄計算（前往「建倉紀錄」管理）</span>
+          </div>
           <span class="text-[10px] text-[color:var(--cyan)]">SATELLITE</span>
         </div>
         <div class="grid grid-cols-2 gap-3">
@@ -319,7 +323,10 @@
       <!-- 2A 信貸正二底倉 -->
       <div class="card-inset p-3 space-y-3">
         <div class="flex items-center justify-between">
-          <span class="num-label">⚡ 信貸正二底倉</span>
+          <div class="flex flex-col">
+            <span class="num-label">⚡ 信貸正二底倉</span>
+            <span id="t2_ledger_badge" class="text-[10px] text-[color:var(--purple)] mt-0.5 hidden">📒 由建倉紀錄計算（前往「建倉紀錄」管理）</span>
+          </div>
           <span class="text-[10px] text-[color:var(--purple)]">CORE-LEV</span>
         </div>
         <div class="grid grid-cols-2 gap-3">
@@ -379,6 +386,152 @@
     <div class="flex gap-2">
       <button id="btn_save" class="btn btn-primary flex-1">💾 核算/儲存</button>
       <button id="btn_reset" class="btn btn-ghost">↺ 重設初始值</button>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- TAB 1.5 : 建倉紀錄  LEDGER                    -->
+  <!-- ============================================ -->
+  <section id="tab-ledger" class="hidden-tab space-y-5">
+
+    <div class="sec-h">新增建倉 / 出場紀錄</div>
+    <div class="text-[11px] text-[color:var(--txt-dim)] -mt-3 px-1">
+      券商會把雙軌部位混為一個帳戶，這裡為兩軌分別建立獨立帳本，自動算各軌均價與累積投入。
+    </div>
+
+    <!-- Add Form -->
+    <div class="card p-4 space-y-3">
+      <!-- Date + Track -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <div class="num-label mb-1">日期</div>
+          <input id="led_date" type="date" class="card-inset w-full p-2 text-sm text-white font-mono" style="border-radius:10px; background:rgba(8,12,22,.55); border:1px solid var(--line-soft);">
+        </div>
+        <div>
+          <div class="num-label mb-1">軌道</div>
+          <div class="grid grid-cols-2 gap-2">
+            <button class="btn led-track-pick btn-primary" data-track="1" style="padding:8px 4px; font-size:12.5px;">T1 自有</button>
+            <button class="btn led-track-pick" data-track="2" style="padding:8px 4px; font-size:12.5px;">T2 信貸</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action -->
+      <div>
+        <div class="num-label mb-1">動作</div>
+        <div class="grid grid-cols-2 gap-2">
+          <button class="btn led-action-pick btn-success" data-action="buy" style="padding:10px 4px;">▲ 買入</button>
+          <button class="btn led-action-pick" data-action="sell" style="padding:10px 4px;">▼ 賣出</button>
+        </div>
+      </div>
+
+      <!-- Shares + Price -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <div class="num-label mb-1">股數</div>
+          <input id="led_shares" type="number" class="num-input" style="font-size:20px;" placeholder="1000">
+        </div>
+        <div>
+          <div class="num-label mb-1">價格 (元/股)</div>
+          <input id="led_price" type="number" step="0.01" class="num-input" style="font-size:20px;" placeholder="35.50">
+        </div>
+      </div>
+
+      <!-- Preview row -->
+      <div class="card-inset p-2 text-[12px] flex items-center justify-between" id="led_preview">
+        <span class="text-[color:var(--txt-dim)]">本筆金額</span>
+        <span class="font-mono text-[color:var(--gold)] font-bold">0 元</span>
+      </div>
+
+      <button id="led_add" class="btn btn-primary w-full" style="padding:12px;">+ 加入建倉紀錄</button>
+    </div>
+
+    <!-- T1 Summary -->
+    <div class="card track1 p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="ribbon ribbon-1">TRACK · 01</span>
+          <span class="text-sm font-semibold">自有資金軌</span>
+        </div>
+        <span class="text-xs text-[color:var(--txt-dim)]" id="led_t1_count">0 筆</span>
+      </div>
+      <div class="grid grid-cols-2 gap-3 pt-1">
+        <div class="card-inset p-3">
+          <div class="num-label">累積股數</div>
+          <div id="led_t1_shares" class="font-mono text-[22px] font-bold text-white mt-1">0</div>
+        </div>
+        <div class="card-inset p-3">
+          <div class="num-label">加權均價</div>
+          <div id="led_t1_avg" class="font-mono text-[22px] font-bold text-[color:var(--cyan)] glow-cyan mt-1">0.00</div>
+        </div>
+        <div class="card-inset p-3">
+          <div class="num-label">當前投入成本</div>
+          <div id="led_t1_cost" class="font-mono text-base font-bold mt-1">0 元</div>
+        </div>
+        <div class="card-inset p-3">
+          <div class="num-label">已實現損益</div>
+          <div id="led_t1_realized" class="font-mono text-base font-bold mt-1">+0 元</div>
+        </div>
+      </div>
+      <button class="btn led-clear w-full" data-track="1" style="padding:8px; font-size:12px; color:var(--pink); border-color:rgba(255,77,109,.25);">↺ 清空 T1 建倉紀錄</button>
+    </div>
+
+    <!-- T2 Summary -->
+    <div class="card track2 p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="ribbon ribbon-2">TRACK · 02</span>
+          <span class="text-sm font-semibold">信貸資金軌</span>
+        </div>
+        <span class="text-xs text-[color:var(--txt-dim)]" id="led_t2_count">0 筆</span>
+      </div>
+      <div class="grid grid-cols-2 gap-3 pt-1">
+        <div class="card-inset p-3">
+          <div class="num-label">累積股數</div>
+          <div id="led_t2_shares" class="font-mono text-[22px] font-bold text-white mt-1">0</div>
+        </div>
+        <div class="card-inset p-3">
+          <div class="num-label">加權均價</div>
+          <div id="led_t2_avg" class="font-mono text-[22px] font-bold text-[color:var(--purple)] glow-purple mt-1">0.00</div>
+        </div>
+        <div class="card-inset p-3">
+          <div class="num-label">當前投入成本</div>
+          <div id="led_t2_cost" class="font-mono text-base font-bold mt-1">0 元</div>
+        </div>
+        <div class="card-inset p-3">
+          <div class="num-label">已實現損益</div>
+          <div id="led_t2_realized" class="font-mono text-base font-bold mt-1">+0 元</div>
+        </div>
+      </div>
+      <button class="btn led-clear w-full" data-track="2" style="padding:8px; font-size:12px; color:var(--pink); border-color:rgba(255,77,109,.25);">↺ 清空 T2 建倉紀錄</button>
+    </div>
+
+    <!-- Full Ledger -->
+    <div class="sec-h">完整建倉紀錄（依日期遞減）</div>
+    <div class="card overflow-hidden">
+      <div class="scroll-x" style="overflow-x:auto;">
+        <table class="hist" style="min-width:520px;">
+          <thead>
+            <tr>
+              <th>日期</th>
+              <th>軌</th>
+              <th>動</th>
+              <th style="text-align:right;">股數</th>
+              <th style="text-align:right;">價格</th>
+              <th style="text-align:right;">累積股</th>
+              <th style="text-align:right;">累積均價</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="led_body">
+            <tr><td colspan="8" class="text-center text-[color:var(--txt-muted)]" style="padding:30px;">尚無建倉紀錄 · 從上方表單新增第一筆</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="flex gap-2">
+      <button id="btn_exportLedger" class="btn flex-1">↓ 匯出帳本 CSV</button>
     </div>
   </section>
 
@@ -764,6 +917,7 @@ const DEFAULT_STATE = {
     taxRate: 0.1
   },
   history: [],
+  ledger: [],
   lastSavedAt: null
 };
 
@@ -795,6 +949,94 @@ const signed = n => (n>=0?'+':'') + fmt(n);
 const $ = sel => document.querySelector(sel);
 const $$ = sel => document.querySelectorAll(sel);
 const todayISO = ()=> new Date().toISOString().slice(0,10);
+
+/* =============================================================
+ *  LEDGER COMPUTATIONS — Average-Cost Basis (台灣券商一致)
+ * ============================================================= */
+function computeLedgerSummary(track){
+  const entries = state.ledger
+    .filter(e => e.track === track)
+    .sort((a,b) => {
+      const dc = (a.date||'').localeCompare(b.date||'');
+      if (dc !== 0) return dc;
+      return (a.id||'').localeCompare(b.id||'');
+    });
+
+  let shares = 0, totalCost = 0, realized = 0;
+  const trail = [];
+
+  for (const e of entries){
+    const avgBefore = shares > 0 ? totalCost / shares : 0;
+    if (e.action === 'buy'){
+      totalCost += e.shares * e.price;
+      shares   += e.shares;
+    } else {
+      // sell: clamp to current shares
+      const sellQty = Math.min(e.shares, shares);
+      realized += sellQty * (e.price - avgBefore);
+      totalCost -= sellQty * avgBefore;
+      shares   -= sellQty;
+    }
+    trail.push({
+      ...e,
+      runShares: shares,
+      runAvg:    shares > 0 ? totalCost / shares : 0,
+      runCost:   totalCost,
+      runRealized: realized
+    });
+  }
+
+  return {
+    count: entries.length,
+    shares,
+    avg: shares > 0 ? totalCost / shares : 0,
+    totalCost,
+    realized,
+    trail
+  };
+}
+
+function syncLedgerToHoldings(){
+  const t1 = computeLedgerSummary(1);
+  const t2 = computeLedgerSummary(2);
+
+  if (t1.count > 0){
+    state.t1.shares = t1.shares;
+    state.t1.avgPrice = +t1.avg.toFixed(2);
+  }
+  if (t2.count > 0){
+    state.t2.shares = t2.shares;
+    state.t2.avgPrice = +t2.avg.toFixed(2);
+  }
+
+  // Lock or unlock holding inputs based on ledger presence
+  const setLock = (id, locked, val) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    if (locked){
+      el.value = val;
+      el.readOnly = true;
+      el.style.color = 'var(--cyan)';
+      el.style.opacity = '.85';
+      el.style.cursor = 'not-allowed';
+    } else {
+      el.readOnly = false;
+      el.style.color = '';
+      el.style.opacity = '';
+      el.style.cursor = '';
+    }
+  };
+
+  setLock('inp_t1_shares', t1.count > 0, t1.shares);
+  setLock('inp_t1_avg',    t1.count > 0, +t1.avg.toFixed(2));
+  setLock('inp_t2_shares', t2.count > 0, t2.shares);
+  setLock('inp_t2_avg',    t2.count > 0, +t2.avg.toFixed(2));
+
+  const b1 = document.getElementById('t1_ledger_badge');
+  const b2 = document.getElementById('t2_ledger_badge');
+  if (b1) b1.classList.toggle('hidden', t1.count === 0);
+  if (b2) b2.classList.toggle('hidden', t2.count === 0);
+}
 
 /* =============================================================
  *  TRACK 1 CALCULATIONS — Core-Satellite Fixed Symmetric
@@ -1243,14 +1485,99 @@ function renderHistory(){
 }
 
 /* =============================================================
+ *  RENDER : TAB LEDGER
+ * ============================================================= */
+let ledAddingTrack = 1;
+let ledAddingAction = 'buy';
+
+function renderLedger(){
+  const t1 = computeLedgerSummary(1);
+  const t2 = computeLedgerSummary(2);
+
+  // Summaries
+  const setSummary = (prefix, s, lossColor) => {
+    document.getElementById(prefix+'_count').textContent = `${s.count} 筆`;
+    document.getElementById(prefix+'_shares').textContent = fmt(s.shares);
+    document.getElementById(prefix+'_avg').textContent = fmt2(s.avg);
+    document.getElementById(prefix+'_cost').textContent = fmt(s.totalCost) + ' 元';
+    const r = document.getElementById(prefix+'_realized');
+    r.textContent = signed(Math.round(s.realized)) + ' 元';
+    r.style.color = s.realized > 0 ? 'var(--green)' : s.realized < 0 ? 'var(--pink)' : 'var(--txt-muted)';
+  };
+  setSummary('led_t1', t1);
+  setSummary('led_t2', t2);
+
+  // Live preview of "本筆金額"
+  const updatePreview = () => {
+    const sh = parseFloat(document.getElementById('led_shares')?.value) || 0;
+    const pr = parseFloat(document.getElementById('led_price')?.value) || 0;
+    const preview = document.getElementById('led_preview');
+    if (preview){
+      const amt = sh * pr;
+      preview.querySelector('span:last-child').textContent = fmt(amt) + ' 元';
+    }
+  };
+  updatePreview();
+
+  // Combined table, sorted DESC by date (most recent first)
+  const all = [...t1.trail, ...t2.trail];
+  all.sort((a,b) => {
+    const dc = (b.date||'').localeCompare(a.date||'');
+    if (dc !== 0) return dc;
+    return (b.id||'').localeCompare(a.id||'');
+  });
+
+  const tbody = document.getElementById('led_body');
+  if (!all.length){
+    tbody.innerHTML = `<tr><td colspan="8" class="text-center text-[color:var(--txt-muted)]" style="padding:30px;">尚無建倉紀錄 · 從上方表單新增第一筆</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = all.map(e => {
+    const trackBadge = e.track === 1
+      ? '<span class="ribbon ribbon-1" style="font-size:9px;padding:2px 6px;">T1</span>'
+      : '<span class="ribbon ribbon-2" style="font-size:9px;padding:2px 6px;">T2</span>';
+    const isBuy = e.action === 'buy';
+    const actionColor = isBuy ? 'var(--green)' : 'var(--pink)';
+    const actionSym = isBuy ? '▲買' : '▼賣';
+    return `<tr>
+      <td style="white-space:nowrap;">${e.date}</td>
+      <td>${trackBadge}</td>
+      <td style="color:${actionColor};font-weight:700;">${actionSym}</td>
+      <td style="text-align:right;">${fmt(e.shares)}</td>
+      <td style="text-align:right;color:var(--gold);">${fmt2(e.price)}</td>
+      <td style="text-align:right;color:#fff;font-weight:700;">${fmt(e.runShares)}</td>
+      <td style="text-align:right;color:${e.track===1?'var(--cyan)':'var(--purple)'};font-weight:700;">${fmt2(e.runAvg)}</td>
+      <td style="text-align:right;"><button class="led-del" data-id="${e.id}" style="color:var(--pink);background:transparent;border:none;cursor:pointer;font-size:14px;padding:4px 8px;">✕</button></td>
+    </tr>`;
+  }).join('');
+
+  // Bind delete
+  document.querySelectorAll('.led-del').forEach(b => {
+    b.addEventListener('click', () => {
+      const id = b.dataset.id;
+      const e = state.ledger.find(x => x.id === id);
+      if (!e) return;
+      if (!confirm(`刪除這筆紀錄？\n${e.date} · T${e.track} · ${e.action==='buy'?'買入':'賣出'} ${fmt(e.shares)} 股 @ ${fmt2(e.price)}`)) return;
+      state.ledger = state.ledger.filter(x => x.id !== id);
+      saveState();
+      syncLedgerToHoldings();
+      renderAll();
+    });
+  });
+}
+
+/* =============================================================
  *  RENDER ALL
  * ============================================================= */
 function renderAll(){
+  syncLedgerToHoldings();
   renderHoldings();
   renderHealth();
   renderBalance();
   renderHistory();
   renderTrend();
+  renderLedger();
 }
 
 /* =============================================================
@@ -1311,9 +1638,14 @@ function initBindings(){
 
   // Reset initial
   $('#btn_reset').addEventListener('click', ()=>{
-    if(!confirm('將持倉欄位重設為初始基準值？(美核 540k / T1 現金 280k / T2 現金 334k / 隔離 500k)')) return;
+    const ledCnt = state.ledger.length;
+    const msg = ledCnt > 0
+      ? `將持倉欄位重設為初始基準值，並同時清空 ${ledCnt} 筆建倉紀錄？\n(否則建倉紀錄會立即覆蓋重設值)`
+      : '將持倉欄位重設為初始基準值？(美核 540k / T1 現金 280k / T2 現金 334k / 隔離 500k)';
+    if(!confirm(msg)) return;
     state.t1 = { usCore:540000, shares:0, avgPrice:0, cash:280000 };
     state.t2 = { shares:0, avgPrice:0, cash:334000, isolated:500000, maTriggered:false };
+    state.ledger = [];
     saveState();
     // re-init input values
     document.getElementById('inp_t1_usCore').value = state.t1.usCore;
@@ -1406,6 +1738,118 @@ function initBindings(){
     state.history = [];
     saveState(); renderTrend(); renderHistory();
   });
+
+  /* ============ LEDGER TAB BINDINGS ============ */
+  // Track picker (within ledger form)
+  $$('.led-track-pick').forEach(b => {
+    b.addEventListener('click', () => {
+      ledAddingTrack = +b.dataset.track;
+      $$('.led-track-pick').forEach(x => {
+        x.classList.toggle('btn-primary', +x.dataset.track === ledAddingTrack);
+      });
+    });
+  });
+
+  // Action picker
+  const refreshActionBtns = () => {
+    $$('.led-action-pick').forEach(x => {
+      const isBuy = x.dataset.action === 'buy';
+      const isActive = x.dataset.action === ledAddingAction;
+      x.classList.remove('btn-success','btn-danger');
+      if (isActive){
+        x.classList.add(isBuy ? 'btn-success' : 'btn-danger');
+      }
+    });
+  };
+  $$('.led-action-pick').forEach(b => {
+    b.addEventListener('click', () => {
+      ledAddingAction = b.dataset.action;
+      refreshActionBtns();
+    });
+  });
+
+  // Default date
+  $('#led_date').value = todayISO();
+
+  // Live preview on input
+  ['led_shares','led_price'].forEach(id => {
+    document.getElementById(id).addEventListener('input', () => {
+      const sh = parseFloat($('#led_shares').value) || 0;
+      const pr = parseFloat($('#led_price').value) || 0;
+      $('#led_preview').querySelector('span:last-child').textContent = fmt(sh * pr) + ' 元';
+    });
+  });
+
+  // Add entry
+  $('#led_add').addEventListener('click', () => {
+    const date = $('#led_date').value || todayISO();
+    const shares = parseInt($('#led_shares').value);
+    const price = parseFloat($('#led_price').value);
+
+    if (!shares || shares <= 0){ alert('請輸入有效股數'); return; }
+    if (!price || price <= 0){ alert('請輸入有效價格'); return; }
+
+    // Sell validation: don't allow negative position
+    if (ledAddingAction === 'sell'){
+      const cur = computeLedgerSummary(ledAddingTrack);
+      if (cur.shares < shares){
+        alert(`❌ 賣出股數 ${fmt(shares)} 超過 T${ledAddingTrack} 持有股數 ${fmt(cur.shares)}\n（系統不允許建立負部位）`);
+        return;
+      }
+    }
+
+    state.ledger.push({
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 7),
+      date, track: ledAddingTrack, action: ledAddingAction,
+      shares, price
+    });
+    saveState();
+    syncLedgerToHoldings();
+    renderAll();
+
+    // Clear inputs (keep date and track/action for fast repeat entry)
+    $('#led_shares').value = '';
+    $('#led_price').value = '';
+    $('#led_preview').querySelector('span:last-child').textContent = '0 元';
+    flash($('#led_add'), '✓ 已新增');
+  });
+
+  // Clear per-track ledger
+  $$('.led-clear').forEach(b => {
+    b.addEventListener('click', () => {
+      const t = +b.dataset.track;
+      const cnt = state.ledger.filter(e => e.track === t).length;
+      if (cnt === 0){ alert(`T${t} 沒有任何建倉紀錄`); return; }
+      if (!confirm(`確定清空 T${t} 的全部 ${cnt} 筆建倉紀錄？\n清空後該軌持股/均價回到手動輸入模式（最後計算值會保留）`)) return;
+      state.ledger = state.ledger.filter(e => e.track !== t);
+      saveState();
+      syncLedgerToHoldings();
+      renderAll();
+    });
+  });
+
+  // Export ledger CSV
+  $('#btn_exportLedger').addEventListener('click', () => {
+    if (!state.ledger.length){ alert('帳本為空，無法匯出'); return; }
+    const head = ['日期','軌道','動作','股數','價格','本筆金額','累積股數','累積均價','已實現損益'];
+    const lines = [head.join(',')];
+    // Combine trails to get running cumulative values
+    const t1 = computeLedgerSummary(1).trail;
+    const t2 = computeLedgerSummary(2).trail;
+    const all = [...t1, ...t2].sort((a,b) => (a.date||'').localeCompare(b.date||''));
+    all.forEach(e => {
+      lines.push([
+        e.date, 'T'+e.track, e.action==='buy'?'買入':'賣出',
+        e.shares, e.price, Math.round(e.shares*e.price),
+        e.runShares, e.runAvg.toFixed(2), Math.round(e.runRealized)
+      ].join(','));
+    });
+    const blob = new Blob(['\ufeff'+lines.join('\n')], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `drms_v5_ledger_${todayISO()}.csv`;
+    a.click();
+  });
 }
 
 function flash(btn, text){
@@ -1420,7 +1864,7 @@ function flash(btn, text){
  * ============================================================= */
 function switchTab(tabId){
   $$('.tab-btn').forEach(b=> b.classList.toggle('active', b.dataset.tab === tabId));
-  ['tab-holdings','tab-health','tab-trend','tab-balance','tab-history','tab-settings'].forEach(id=>{
+  ['tab-holdings','tab-ledger','tab-health','tab-trend','tab-balance','tab-history','tab-settings'].forEach(id=>{
     const el = document.getElementById(id);
     el.classList.toggle('hidden-tab', id !== tabId);
   });
@@ -1430,6 +1874,7 @@ function switchTab(tabId){
   if (tabId==='tab-trend') renderTrend();
   if (tabId==='tab-history') renderHistory();
   if (tabId==='tab-holdings') renderHoldings();
+  if (tabId==='tab-ledger') renderLedger();
 }
 
 $$('.tab-btn').forEach(b=> b.addEventListener('click', ()=> switchTab(b.dataset.tab)));
