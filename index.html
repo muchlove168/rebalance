@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0">
+<title>雙軌再平衡 v5.0 · DRMS</title>
+
+<!-- PWA / iOS Home-screen support -->
+<meta name="theme-color" content="#05070d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="DRMS v5">
+<meta name="format-detection" content="telephone=no">
+
+<!-- Inline SVG favicon + apple-touch-icon (cyan double-track mark) -->
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235cd4ff'/><stop offset='1' stop-color='%23b48cff'/></linearGradient></defs><rect width='100' height='100' rx='22' fill='%2305070d'/><path d='M22 30 L22 78 M40 22 L40 78 M60 22 L60 78 M78 30 L78 78' stroke='url(%23g)' stroke-width='6' stroke-linecap='round' fill='none'/><circle cx='31' cy='52' r='5' fill='%235cd4ff'/><circle cx='69' cy='62' r='5' fill='%23b48cff'/></svg>">
+<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='%235cd4ff'/><stop offset='1' stop-color='%23b48cff'/></linearGradient></defs><rect width='180' height='180' rx='40' fill='%2305070d'/><path d='M40 54 L40 140 M72 40 L72 140 M108 40 L108 140 M140 54 L140 140' stroke='url(%23g)' stroke-width='10' stroke-linecap='round' fill='none'/><circle cx='56' cy='94' r='9' fill='%235cd4ff'/><circle cx='124' cy='112' r='9' fill='%23b48cff'/></svg>">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700;800&family=Noto+Sans+TC:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-0:#05070d;
+    --bg-1:#0b101b;
+    --bg-2:#10172a;
+    --bg-3:#172238;
+    --line:#1f2c4a;
+    --line-soft:#1a2440;
+    --txt:#e8eefc;
+    --txt-dim:#8b97b4;
+    --txt-muted:#5a6885;
+    --cyan:#5cd4ff;
+    --cyan-d:#2bb3e8;
+    --green:#34e3a4;
+    --green-d:#10b981;
+    --pink:#ff6b9d;
+    --red:#ff4d6d;
+    --gold:#f2c54a;
+    --amber:#ff9a3c;
+    --purple:#b48cff;
+  }
+  *{ -webkit-tap-highlight-color:transparent; }
+  html,body{
+    background:var(--bg-0);
+    color:var(--txt);
+    font-family:'Noto Sans TC','PingFang TC','Microsoft JhengHei',sans-serif;
+    letter-spacing:.01em;
+  }
+  body{
+    background:
+      radial-gradient(circle at 15% -10%, rgba(92,212,255,.08), transparent 45%),
+      radial-gradient(circle at 95% 10%, rgba(180,140,255,.06), transparent 40%),
+      radial-gradient(circle at 50% 110%, rgba(52,227,164,.05), transparent 50%),
+      var(--bg-0);
+    min-height:100vh;
+  }
+  .font-display{ font-family:'Chakra Petch','Noto Sans TC',sans-serif; letter-spacing:.06em; }
+  .font-mono{ font-family:'JetBrains Mono','Noto Sans TC',sans-serif; font-variant-numeric:tabular-nums; }
+
+  /* Cards */
+  .card{
+    background:linear-gradient(180deg, rgba(23,34,56,.55), rgba(11,16,27,.65));
+    border:1px solid var(--line-soft);
+    border-radius:16px;
+    backdrop-filter:blur(8px);
+  }
+  .card-inset{
+    background:rgba(8,12,22,.55);
+    border:1px solid var(--line-soft);
+    border-radius:14px;
+  }
+  .card-glow{ box-shadow:0 0 0 1px rgba(92,212,255,.18), 0 0 40px -10px rgba(92,212,255,.25); }
+  .card-glow-green{ box-shadow:0 0 0 1px rgba(52,227,164,.35), 0 0 40px -10px rgba(52,227,164,.35); }
+  .card-glow-red{ box-shadow:0 0 0 1px rgba(255,77,109,.35), 0 0 40px -10px rgba(255,77,109,.4); }
+  .card-glow-amber{ box-shadow:0 0 0 1px rgba(242,197,74,.35), 0 0 40px -10px rgba(242,197,74,.3); }
+
+  /* Tab pill */
+  .tab-btn{
+    position:relative; flex:0 0 auto;
+    padding:12px 4px; color:var(--txt-dim);
+    font-weight:500; font-size:14.5px;
+    transition:color .2s ease;
+    white-space:nowrap;
+  }
+  .tab-btn.active{ color:var(--cyan); }
+  .tab-btn.active::after{
+    content:""; position:absolute; left:50%; bottom:0;
+    transform:translateX(-50%);
+    width:60%; height:2.5px;
+    background:linear-gradient(90deg, transparent, var(--cyan), transparent);
+    border-radius:2px;
+    box-shadow:0 0 8px rgba(92,212,255,.7);
+  }
+
+  /* Inputs */
+  .num-input{
+    width:100%; background:transparent; outline:none;
+    font-family:'JetBrains Mono','Noto Sans TC',sans-serif;
+    font-weight:700; font-size:24px; color:#fff;
+    font-variant-numeric:tabular-nums;
+  }
+  .num-input::-webkit-outer-spin-button,
+  .num-input::-webkit-inner-spin-button{ -webkit-appearance:none; margin:0; }
+  .num-input[type=number]{ -moz-appearance:textfield; }
+  .num-label{ font-size:12.5px; color:var(--txt-dim); letter-spacing:.04em; }
+
+  /* Bar */
+  .bar-track{ height:10px; background:rgba(31,44,74,.6); border-radius:999px; overflow:hidden; position:relative; }
+  .bar-fill{ height:100%; border-radius:999px; transition:width .5s cubic-bezier(.2,.7,.2,1); }
+  .bar-target{ position:absolute; top:-3px; bottom:-3px; width:2px; background:var(--gold); box-shadow:0 0 8px rgba(242,197,74,.7); }
+
+  /* Section header (left bar) */
+  .sec-h{ display:flex; align-items:center; gap:8px; font-size:14px; color:var(--txt-dim); font-weight:500; }
+  .sec-h::before{ content:""; width:3px; height:14px; background:var(--cyan); border-radius:2px; box-shadow:0 0 6px rgba(92,212,255,.6); }
+
+  /* Buttons */
+  .btn{
+    padding:10px 16px; border-radius:12px; font-weight:600; font-size:14px;
+    border:1px solid var(--line); color:var(--txt-dim);
+    background:rgba(15,22,38,.7); transition:all .15s ease;
+    display:inline-flex; align-items:center; gap:6px; justify-content:center;
+  }
+  .btn:hover{ color:#fff; border-color:rgba(92,212,255,.45); }
+  .btn-primary{ background:linear-gradient(135deg, rgba(92,212,255,.18), rgba(43,179,232,.12)); color:var(--cyan); border-color:rgba(92,212,255,.4); }
+  .btn-primary:hover{ background:linear-gradient(135deg, rgba(92,212,255,.28), rgba(43,179,232,.18)); }
+  .btn-danger{ background:linear-gradient(135deg, rgba(255,77,109,.16), rgba(255,107,157,.1)); color:var(--pink); border-color:rgba(255,77,109,.4); }
+  .btn-success{ background:linear-gradient(135deg, rgba(52,227,164,.16), rgba(16,185,129,.1)); color:var(--green); border-color:rgba(52,227,164,.4); }
+  .btn-ghost{ background:transparent; }
+
+  /* Track ribbon labels */
+  .ribbon{
+    display:inline-flex; align-items:center; gap:6px;
+    padding:4px 10px; border-radius:999px;
+    font-family:'Chakra Petch',sans-serif; letter-spacing:.08em;
+    font-size:11px; font-weight:600;
+  }
+  .ribbon-1{ background:rgba(92,212,255,.12); color:var(--cyan); border:1px solid rgba(92,212,255,.3); }
+  .ribbon-2{ background:rgba(180,140,255,.12); color:var(--purple); border:1px solid rgba(180,140,255,.3); }
+
+  /* Track top accent */
+  .track1{ border-top:2px solid rgba(92,212,255,.55); }
+  .track2{ border-top:2px solid rgba(180,140,255,.55); }
+
+  /* Glow text */
+  .glow-cyan{ text-shadow:0 0 14px rgba(92,212,255,.55); }
+  .glow-green{ text-shadow:0 0 14px rgba(52,227,164,.5); }
+  .glow-pink{ text-shadow:0 0 14px rgba(255,107,157,.5); }
+  .glow-purple{ text-shadow:0 0 14px rgba(180,140,255,.55); }
+  .glow-gold{ text-shadow:0 0 14px rgba(242,197,74,.55); }
+
+  /* Scrollbar */
+  .scroll-x{ overflow-x:auto; scrollbar-width:none; }
+  .scroll-x::-webkit-scrollbar{ display:none; }
+
+  /* Pulse for active signals */
+  @keyframes pulse-soft{
+    0%,100%{ opacity:.9; }
+    50%{ opacity:.55; }
+  }
+  .pulse{ animation:pulse-soft 2s ease-in-out infinite; }
+
+  /* Toggle switch */
+  .switch{ width:46px; height:26px; border-radius:14px; background:rgba(31,44,74,.8); position:relative; cursor:pointer; transition:background .2s; border:1px solid var(--line); }
+  .switch.on{ background:linear-gradient(135deg, rgba(255,154,60,.4), rgba(255,77,109,.4)); border-color:rgba(255,154,60,.6); }
+  .switch::after{ content:""; position:absolute; top:2px; left:2px; width:20px; height:20px; border-radius:50%; background:#e8eefc; transition:left .2s; }
+  .switch.on::after{ left:22px; background:var(--amber); box-shadow:0 0 10px rgba(255,154,60,.7); }
+
+  /* Table */
+  table.hist{ width:100%; border-collapse:collapse; }
+  table.hist th{ font-size:12px; color:var(--txt-dim); font-weight:500; text-align:left; padding:10px 8px; border-bottom:1px solid var(--line-soft); }
+  table.hist td{ padding:12px 8px; border-bottom:1px solid rgba(31,44,74,.4); font-family:'JetBrains Mono','Noto Sans TC',sans-serif; font-size:13.5px; font-variant-numeric:tabular-nums; }
+  table.hist tr:hover td{ background:rgba(23,34,56,.35); }
+
+  /* Hidden helper */
+  .hidden-tab{ display:none; }
+
+  /* Grid noise overlay */
+  body::before{
+    content:""; position:fixed; inset:0; pointer-events:none; z-index:0;
+    background-image:
+      linear-gradient(rgba(92,212,255,.025) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(92,212,255,.025) 1px, transparent 1px);
+    background-size:48px 48px;
+    mask-image:radial-gradient(ellipse at center, rgba(0,0,0,.6), transparent 75%);
+  }
+  main{ position:relative; z-index:1; }
+
+  /* Watermark band on top */
+  .header-tag{
+    font-family:'Chakra Petch',sans-serif;
+    letter-spacing:.35em; font-size:10.5px;
+    color:rgba(92,212,255,.55);
+  }
+</style>
+</head>
+<body>
+
+<main class="max-w-md mx-auto px-4 pb-32 pt-5">
+
+  <!-- ============ HEADER ============ -->
+  <header class="relative mb-2">
+    <div class="flex items-start justify-between">
+      <div>
+        <div class="header-tag">DYNAMIC · REBALANCE · MATRIX</div>
+        <h1 class="text-[26px] font-bold leading-tight mt-0.5 flex items-center gap-2">
+          雙軌資產再平衡系統
+          <span class="ribbon ribbon-1" style="font-size:10.5px; padding:3px 8px;">V5.0</span>
+        </h1>
+      </div>
+      <div class="text-right">
+        <div class="font-mono text-[26px] font-bold glow-cyan" id="hdrPrice">37.78</div>
+        <div class="text-xs text-[color:var(--txt-dim)]" id="hdrTime">— —</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ============ TABS ============ -->
+  <nav class="scroll-x border-b border-[color:var(--line-soft)] mb-5">
+    <div class="flex gap-6 min-w-max px-1">
+      <button class="tab-btn active" data-tab="tab-holdings">📊 雙軌持倉</button>
+      <button class="tab-btn" data-tab="tab-health">🩺 健檢結果</button>
+      <button class="tab-btn" data-tab="tab-trend">📈 走勢追蹤</button>
+      <button class="tab-btn" data-tab="tab-balance">💰 資產負債</button>
+      <button class="tab-btn" data-tab="tab-history">📋 歷史紀錄</button>
+      <button class="tab-btn" data-tab="tab-settings">⚙️ 核心設定</button>
+    </div>
+  </nav>
+
+  <!-- ============================================ -->
+  <!-- TAB 1 : 雙軌持倉  HOLDINGS                    -->
+  <!-- ============================================ -->
+  <section id="tab-holdings" class="space-y-5">
+
+    <!-- Live Quote -->
+    <div class="card card-glow p-4">
+      <div class="flex items-center justify-between mb-1">
+        <span class="num-label">00631L · 元大台灣50正2 · 現價 (元/股)</span>
+        <span class="ribbon ribbon-1">LIVE</span>
+      </div>
+      <input id="inp_currentPrice" type="number" step="0.01" class="num-input glow-cyan" style="font-size:42px; color:var(--cyan);" value="37.78">
+      <div class="text-xs text-[color:var(--txt-dim)] mt-1">
+        最近核算：<span id="lastQuote" class="font-mono">37.78</span> 元 ·
+        <span id="quoteDelta" class="font-mono text-[color:var(--txt-muted)]">+0.00 (+0.00%)</span>
+      </div>
+    </div>
+
+    <!-- =================== TRACK 1 =================== -->
+    <div class="card track1 p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="ribbon ribbon-1">TRACK · 01</span>
+          <h2 class="font-display font-semibold text-[15px]">自有資金軌 · 核心衛星</h2>
+        </div>
+        <span class="text-[10px] text-[color:var(--txt-muted)]">固定 ±15% 對稱再平衡</span>
+      </div>
+
+      <!-- 1A 美股核心艙 -->
+      <div class="card-inset p-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="num-label">🇺🇸 美股核心艙 (靜態死抱 · 0% 再平衡)</span>
+          <span class="text-[10px] text-[color:var(--green)]">LONG-HOLD</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-[color:var(--txt-dim)]">現貨總市值 (元)</span>
+          <input id="inp_t1_usCore" type="number" class="num-input text-right" value="540000" style="max-width:60%;">
+        </div>
+      </div>
+
+      <!-- 1B 台股衛星艙 -->
+      <div class="card-inset p-3 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="num-label">🇹🇼 台股衛星艙 · 00631L 正二</span>
+          <span class="text-[10px] text-[color:var(--cyan)]">SATELLITE</span>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <div class="num-label mb-1">持有股數</div>
+            <input id="inp_t1_shares" type="number" class="num-input" style="font-size:20px;" value="0">
+          </div>
+          <div>
+            <div class="num-label mb-1">持倉均價</div>
+            <input id="inp_t1_avg" type="number" step="0.01" class="num-input" style="font-size:20px;" value="0">
+          </div>
+        </div>
+        <div class="border-t border-[color:var(--line-soft)] pt-3 flex items-center justify-between">
+          <span class="text-xs text-[color:var(--txt-dim)]">即時市值</span>
+          <span id="out_t1_marketValue" class="font-mono text-[20px] font-bold text-white">0 元</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-[color:var(--txt-dim)]">相對均價損益</span>
+          <span id="out_t1_pnl" class="font-mono text-[15px] font-bold text-[color:var(--txt-muted)]">+0 元 (0.00%)</span>
+        </div>
+      </div>
+
+      <!-- 1C 自有防禦現金庫 -->
+      <div class="card-inset p-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="num-label">💵 自有防禦現金庫</span>
+          <span class="text-[10px] text-[color:var(--green)]">RESERVE</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-[color:var(--txt-dim)]">交割戶可用現金 (元)</span>
+          <input id="inp_t1_cash" type="number" class="num-input text-right" value="280000" style="max-width:60%;">
+        </div>
+      </div>
+    </div>
+
+    <!-- =================== TRACK 2 =================== -->
+    <div class="card track2 p-4 space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="ribbon ribbon-2">TRACK · 02</span>
+          <h2 class="font-display font-semibold text-[15px]">信貸資金軌 · 高時區控盤</h2>
+        </div>
+        <span class="text-[10px] text-[color:var(--txt-muted)]">不對稱 · 寬幅鈍化</span>
+      </div>
+
+      <!-- 2A 信貸正二底倉 -->
+      <div class="card-inset p-3 space-y-3">
+        <div class="flex items-center justify-between">
+          <span class="num-label">⚡ 信貸正二底倉</span>
+          <span class="text-[10px] text-[color:var(--purple)]">CORE-LEV</span>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <div class="num-label mb-1">持有股數</div>
+            <input id="inp_t2_shares" type="number" class="num-input" style="font-size:20px;" value="0">
+          </div>
+          <div>
+            <div class="num-label mb-1">持倉均價</div>
+            <input id="inp_t2_avg" type="number" step="0.01" class="num-input" style="font-size:20px;" value="0">
+          </div>
+        </div>
+        <div class="border-t border-[color:var(--line-soft)] pt-3 flex items-center justify-between">
+          <span class="text-xs text-[color:var(--txt-dim)]">即時市值</span>
+          <span id="out_t2_marketValue" class="font-mono text-[20px] font-bold text-white">0 元</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-[color:var(--txt-dim)]">相對均價損益</span>
+          <span id="out_t2_pnl" class="font-mono text-[15px] font-bold text-[color:var(--txt-muted)]">+0 元 (0.00%)</span>
+        </div>
+      </div>
+
+      <!-- 2B 特攻現金庫 -->
+      <div class="card-inset p-3">
+        <div class="flex items-center justify-between mb-2">
+          <span class="num-label">🎯 特攻現金庫 (左側獵殺燃料)</span>
+          <span class="text-[10px] text-[color:var(--amber)]">STRIKE</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-[color:var(--txt-dim)]">可用現金 (元)</span>
+          <input id="inp_t2_cash" type="number" class="num-input text-right" value="334000" style="max-width:60%;">
+        </div>
+      </div>
+
+      <!-- 2C 隔離還款金 -->
+      <div class="card-inset p-3" style="border-color:rgba(255,77,109,.25);">
+        <div class="flex items-center justify-between mb-2">
+          <span class="num-label">🔒 隔離還款金 (永久凍結 · 不計入燃料)</span>
+          <span class="text-[10px] text-[color:var(--red)]">FROZEN</span>
+        </div>
+        <div class="flex items-center justify-between">
+          <span class="text-xs text-[color:var(--txt-dim)]">剛性防禦隔離款 (元)</span>
+          <input id="inp_t2_isolated" type="number" class="num-input text-right" value="500000" style="max-width:60%; color:var(--pink);">
+        </div>
+      </div>
+
+      <!-- MA 觸發 toggle -->
+      <div class="card-inset p-3 flex items-center justify-between" id="maToggleCard" style="border-color:rgba(255,154,60,.25);">
+        <div>
+          <div class="text-[13px] font-semibold text-white">📉 大盤觸及日線 60MA / 120MA</div>
+          <div class="text-[11px] text-[color:var(--txt-dim)] mt-0.5">勾選後立即觸發左側獵殺買入訊號</div>
+        </div>
+        <div id="maSwitch" class="switch"></div>
+      </div>
+    </div>
+
+    <div class="flex gap-2">
+      <button id="btn_save" class="btn btn-primary flex-1">💾 核算/儲存</button>
+      <button id="btn_reset" class="btn btn-ghost">↺ 重設初始值</button>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- TAB 2 : 健檢結果  HEALTH                       -->
+  <!-- ============================================ -->
+  <section id="tab-health" class="hidden-tab space-y-5">
+
+    <div class="sec-h">當下部位健檢 · 雙軌彙總</div>
+
+    <!-- NAV three blocks -->
+    <div class="grid grid-cols-3 gap-2">
+      <div class="card p-3 text-center">
+        <div class="num-label">總資產 NAV</div>
+        <div id="kpi_nav" class="font-mono text-[22px] font-bold text-white glow-cyan mt-1">0</div>
+      </div>
+      <div class="card p-3 text-center">
+        <div class="num-label">股票市值</div>
+        <div id="kpi_stock" class="font-mono text-[22px] font-bold text-white mt-1">0</div>
+      </div>
+      <div class="card p-3 text-center">
+        <div class="num-label">現金部位</div>
+        <div id="kpi_cash" class="font-mono text-[22px] font-bold text-white mt-1">0</div>
+      </div>
+    </div>
+
+    <!-- TRACK 1 PROGRESS -->
+    <div class="card track1 p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="ribbon ribbon-1">TRACK · 01</span>
+        <span class="text-xs text-[color:var(--txt-dim)]">目標股現比 50% : 50%</span>
+      </div>
+
+      <div class="flex items-end justify-between text-xs">
+        <span>股 <span id="t1_stockPct" class="font-mono text-white font-bold">0%</span></span>
+        <span class="text-[color:var(--gold)]">目標 50%</span>
+        <span>現 <span id="t1_cashPct" class="font-mono text-white font-bold">0%</span></span>
+      </div>
+      <div class="bar-track">
+        <div id="t1_bar" class="bar-fill" style="width:0%; background:linear-gradient(90deg, var(--cyan-d), var(--cyan));"></div>
+        <div class="bar-target" style="left:50%;"></div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 pt-2">
+        <div class="card-inset p-2 text-center">
+          <div class="text-[10px] text-[color:var(--txt-dim)]">美核</div>
+          <div id="t1_us" class="font-mono text-sm font-bold">0</div>
+        </div>
+        <div class="card-inset p-2 text-center">
+          <div class="text-[10px] text-[color:var(--txt-dim)]">衛星市值</div>
+          <div id="t1_sat" class="font-mono text-sm font-bold text-[color:var(--cyan)]">0</div>
+        </div>
+        <div class="card-inset p-2 text-center">
+          <div class="text-[10px] text-[color:var(--txt-dim)]">現金</div>
+          <div id="t1_cash" class="font-mono text-sm font-bold text-[color:var(--green)]">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- T1 Signal Box -->
+    <div id="t1_signalBox"></div>
+
+    <!-- T1 detail card -->
+    <div id="t1_detail" class="hidden"></div>
+
+    <!-- TRACK 2 PROGRESS -->
+    <div class="card track2 p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="ribbon ribbon-2">TRACK · 02</span>
+        <span class="text-xs text-[color:var(--txt-dim)]">不對稱 · 右 +35% / 左 MA 手動</span>
+      </div>
+
+      <div class="flex items-end justify-between text-xs">
+        <span>底倉 <span id="t2_stockPct" class="font-mono text-white font-bold">0%</span></span>
+        <span class="text-[color:var(--purple)]">特攻現金 + 底倉</span>
+        <span>燃料 <span id="t2_cashPct" class="font-mono text-white font-bold">0%</span></span>
+      </div>
+      <div class="bar-track">
+        <div id="t2_bar" class="bar-fill" style="width:0%; background:linear-gradient(90deg, #8c6dd4, var(--purple));"></div>
+      </div>
+
+      <div class="grid grid-cols-3 gap-2 pt-2">
+        <div class="card-inset p-2 text-center">
+          <div class="text-[10px] text-[color:var(--txt-dim)]">底倉市值</div>
+          <div id="t2_sat" class="font-mono text-sm font-bold text-[color:var(--purple)]">0</div>
+        </div>
+        <div class="card-inset p-2 text-center">
+          <div class="text-[10px] text-[color:var(--txt-dim)]">特攻現金</div>
+          <div id="t2_cash" class="font-mono text-sm font-bold text-[color:var(--amber)]">0</div>
+        </div>
+        <div class="card-inset p-2 text-center" style="border-color:rgba(255,77,109,.2);">
+          <div class="text-[10px] text-[color:var(--txt-dim)]">隔離款</div>
+          <div id="t2_iso" class="font-mono text-sm font-bold text-[color:var(--pink)]">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- T2 Signal Box -->
+    <div id="t2_signalBox"></div>
+
+    <!-- T2 detail card -->
+    <div id="t2_detail" class="hidden"></div>
+
+    <!-- Trigger zone predictor -->
+    <div class="sec-h mt-4">觸發點預測 · 雙軌</div>
+    <div class="grid grid-cols-2 gap-3">
+      <div class="card p-3">
+        <div class="text-[11px] text-[color:var(--txt-dim)] mb-1">T1 超配賣出</div>
+        <div class="font-mono text-base font-bold text-[color:var(--pink)]">≥ 322,000</div>
+        <div class="text-[10px] text-[color:var(--txt-muted)] mt-1">基準 280,000 × 1.15</div>
+      </div>
+      <div class="card p-3">
+        <div class="text-[11px] text-[color:var(--txt-dim)] mb-1">T1 低配買入</div>
+        <div class="font-mono text-base font-bold text-[color:var(--green)]">≤ 238,000</div>
+        <div class="text-[10px] text-[color:var(--txt-muted)] mt-1">基準 280,000 × 0.85</div>
+      </div>
+      <div class="card p-3">
+        <div class="text-[11px] text-[color:var(--txt-dim)] mb-1">T2 物理湮滅</div>
+        <div class="font-mono text-base font-bold text-[color:var(--gold)]">≥ 224,100</div>
+        <div class="text-[10px] text-[color:var(--txt-muted)] mt-1">基準 166,000 × 1.35</div>
+      </div>
+      <div class="card p-3">
+        <div class="text-[11px] text-[color:var(--txt-dim)] mb-1">T2 獵殺單筆</div>
+        <div class="font-mono text-base font-bold text-[color:var(--amber)]">150,000</div>
+        <div class="text-[10px] text-[color:var(--txt-muted)] mt-1">須 60/120MA 手動觸發</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- TAB 3 : 走勢追蹤  TREND                       -->
+  <!-- ============================================ -->
+  <section id="tab-trend" class="hidden-tab space-y-5">
+    <div class="card p-4">
+      <div class="text-center">
+        <div class="text-[13px] text-[color:var(--gold)] font-display tracking-widest">百日投資報酬追蹤計畫</div>
+        <div class="text-[20px] font-bold mt-1">元大台灣50正2 <span class="text-[color:var(--gold)]">(00631L)</span></div>
+        <div class="text-[12px] text-[color:var(--txt-dim)] mt-1">持有股數：<span id="trend_shares" class="font-mono">0</span>　均價：NT$<span id="trend_avg" class="font-mono">0</span></div>
+      </div>
+
+      <div class="grid grid-cols-2 gap-2 mt-4">
+        <div class="card-inset p-3 text-center">
+          <div class="num-label">最新市價</div>
+          <div id="trend_price" class="font-mono text-[22px] font-bold text-[color:var(--cyan)] glow-cyan mt-1">NT$0.00</div>
+        </div>
+        <div class="card-inset p-3 text-center">
+          <div class="num-label">淨損益 (含費用)</div>
+          <div id="trend_netPnL" class="font-mono text-[22px] font-bold text-[color:var(--pink)] glow-pink mt-1">+0</div>
+          <div class="text-[10px] text-[color:var(--txt-muted)] mt-0.5">手續費+稅：<span id="trend_fees" class="font-mono">0</span></div>
+        </div>
+        <div class="card-inset p-3 text-center">
+          <div class="num-label">淨報酬率</div>
+          <div id="trend_netRate" class="font-mono text-[22px] font-bold text-[color:var(--pink)] mt-1">+0.00%</div>
+          <div class="text-[10px] text-[color:var(--txt-muted)] mt-0.5">毛報酬：<span id="trend_grossRate" class="font-mono">+0.00%</span></div>
+        </div>
+        <div class="card-inset p-3 text-center">
+          <div class="num-label">歷史最高淨損益</div>
+          <div id="trend_high" class="font-mono text-[22px] font-bold text-[color:var(--gold)] glow-gold mt-1">+0</div>
+          <div class="text-[10px] text-[color:var(--txt-muted)] mt-0.5">第 <span id="trend_highDay">—</span> 天</div>
+        </div>
+      </div>
+
+      <div class="card-inset p-3 mt-2 text-center">
+        <div class="num-label">歷史最低淨損益</div>
+        <div id="trend_low" class="font-mono text-[20px] font-bold text-[color:var(--purple)] glow-purple mt-1">+0</div>
+        <div class="text-[10px] text-[color:var(--txt-muted)] mt-0.5">第 <span id="trend_lowDay">—</span> 天</div>
+      </div>
+    </div>
+
+    <!-- Chart -->
+    <div class="card p-4">
+      <div class="flex items-center justify-between mb-2">
+        <span class="sec-h">股價走勢 × 淨損益</span>
+        <span class="text-[10px] text-[color:var(--txt-muted)]">已扣手續費+證交稅</span>
+      </div>
+      <div style="position:relative; height:280px;">
+        <canvas id="trendChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Track selector + add entry -->
+    <div class="card p-4 space-y-3">
+      <div class="sec-h">新增/紀錄當日數據</div>
+      <div class="grid grid-cols-2 gap-2">
+        <button class="btn btn-primary track-pick" data-track="1">第一軌 衛星</button>
+        <button class="btn track-pick" data-track="2">第二軌 信貸</button>
+      </div>
+      <div class="grid grid-cols-3 gap-2">
+        <input id="entry_date" type="date" class="card-inset p-2 text-sm text-white">
+        <input id="entry_price" type="number" step="0.01" placeholder="當日市價" class="card-inset p-2 text-sm text-white font-mono">
+        <button id="entry_add" class="btn btn-success">+ 新增</button>
+      </div>
+      <div class="text-[10px] text-[color:var(--txt-dim)]">系統會自動帶入當前持股數、均價與該軌參數計算淨損益</div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- TAB 4 : 資產負債  BALANCE                     -->
+  <!-- ============================================ -->
+  <section id="tab-balance" class="hidden-tab space-y-5">
+    <div class="sec-h">雙軌資產負債表</div>
+
+    <div class="card track1 p-4 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="ribbon ribbon-1">TRACK · 01</span>
+        <span class="text-xs text-[color:var(--txt-dim)]">自有資金</span>
+      </div>
+      <div class="space-y-1 pt-2" id="balance_t1"></div>
+      <div class="flex items-center justify-between border-t border-[color:var(--line)] pt-2 mt-2">
+        <span class="text-sm text-[color:var(--txt-dim)]">第一軌小計</span>
+        <span id="balance_t1_total" class="font-mono text-lg font-bold text-[color:var(--cyan)] glow-cyan">0 元</span>
+      </div>
+    </div>
+
+    <div class="card track2 p-4 space-y-2">
+      <div class="flex items-center justify-between">
+        <span class="ribbon ribbon-2">TRACK · 02</span>
+        <span class="text-xs text-[color:var(--txt-dim)]">信貸資金</span>
+      </div>
+      <div class="space-y-1 pt-2" id="balance_t2"></div>
+      <div class="flex items-center justify-between border-t border-[color:var(--line)] pt-2 mt-2">
+        <span class="text-sm text-[color:var(--txt-dim)]">第二軌小計</span>
+        <span id="balance_t2_total" class="font-mono text-lg font-bold text-[color:var(--purple)] glow-purple">0 元</span>
+      </div>
+      <div class="flex items-center justify-between text-xs text-[color:var(--txt-muted)] pt-1">
+        <span>其中：可動用燃料 (排除隔離款)</span>
+        <span id="balance_t2_avail" class="font-mono">0 元</span>
+      </div>
+    </div>
+
+    <div class="card card-glow p-4">
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-[color:var(--txt-dim)]">總資產 NAV</span>
+        <span id="balance_total" class="font-mono text-2xl font-bold text-white glow-cyan">0 元</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- TAB 5 : 歷史紀錄  HISTORY                     -->
+  <!-- ============================================ -->
+  <section id="tab-history" class="hidden-tab space-y-5">
+    <div class="flex items-center justify-between">
+      <div class="sec-h">操作 & 數據歷史</div>
+      <div class="flex gap-2">
+        <button id="histFilter1" class="btn track-pick" data-track="1" style="padding:6px 10px; font-size:12px;">T1</button>
+        <button id="histFilter2" class="btn track-pick" data-track="2" style="padding:6px 10px; font-size:12px;">T2</button>
+        <button id="histFilterAll" class="btn btn-primary" style="padding:6px 10px; font-size:12px;">全部</button>
+      </div>
+    </div>
+
+    <div class="card overflow-hidden">
+      <table class="hist">
+        <thead>
+          <tr>
+            <th>天</th>
+            <th>軌</th>
+            <th>當日市價</th>
+            <th>淨損益</th>
+            <th>淨報酬</th>
+          </tr>
+        </thead>
+        <tbody id="histBody">
+          <tr><td colspan="5" class="text-center text-[color:var(--txt-muted)]" style="padding:30px;">尚無紀錄</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="flex gap-2">
+      <button id="btn_exportCsv" class="btn flex-1">↓ 匯出 CSV</button>
+      <button id="btn_clearHist" class="btn btn-danger">清除全部</button>
+    </div>
+  </section>
+
+  <!-- ============================================ -->
+  <!-- TAB 6 : 核心設定  SETTINGS                    -->
+  <!-- ============================================ -->
+  <section id="tab-settings" class="hidden-tab space-y-5">
+    <div class="sec-h">核心設定 · 觸發閾值</div>
+
+    <div class="card track1 p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="ribbon ribbon-1">TRACK · 01</span>
+        <span class="text-xs text-[color:var(--txt-dim)]">固定對稱偏離度</span>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <div class="num-label mb-1">衛星基準值 (元)</div>
+          <input id="set_t1_baseline" type="number" class="num-input" style="font-size:18px;" value="280000">
+        </div>
+        <div>
+          <div class="num-label mb-1">對稱閾值 ±%</div>
+          <input id="set_t1_threshold" type="number" step="0.5" class="num-input" style="font-size:18px;" value="15">
+        </div>
+      </div>
+    </div>
+
+    <div class="card track2 p-4 space-y-3">
+      <div class="flex items-center justify-between">
+        <span class="ribbon ribbon-2">TRACK · 02</span>
+        <span class="text-xs text-[color:var(--txt-dim)]">不對稱矩陣</span>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <div class="num-label mb-1">信貸底倉基準 (元)</div>
+          <input id="set_t2_baseline" type="number" class="num-input" style="font-size:18px;" value="166000">
+        </div>
+        <div>
+          <div class="num-label mb-1">右側停利 +%</div>
+          <input id="set_t2_right" type="number" step="0.5" class="num-input" style="font-size:18px;" value="35">
+        </div>
+        <div>
+          <div class="num-label mb-1">左側單筆抽調 (元)</div>
+          <input id="set_t2_strike" type="number" class="num-input" style="font-size:18px;" value="150000">
+        </div>
+        <div>
+          <div class="num-label mb-1">隔離款 (永久凍結)</div>
+          <input id="set_t2_isoBase" type="number" class="num-input" style="font-size:18px;" value="500000">
+        </div>
+      </div>
+    </div>
+
+    <div class="card p-4 space-y-3">
+      <div class="sec-h">交易成本 (用於走勢追蹤淨損益)</div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <div class="num-label mb-1">手續費率 (%)</div>
+          <input id="set_feeRate" type="number" step="0.001" class="num-input" style="font-size:18px;" value="0.1425">
+        </div>
+        <div>
+          <div class="num-label mb-1">證交稅率 (%)</div>
+          <input id="set_taxRate" type="number" step="0.001" class="num-input" style="font-size:18px;" value="0.1">
+        </div>
+      </div>
+      <div class="text-[10px] text-[color:var(--txt-muted)]">系統使用「買入手續費 + 賣出手續費 + 證交稅」雙趟試算淨損益</div>
+    </div>
+
+    <div class="flex gap-2">
+      <button id="btn_saveSettings" class="btn btn-primary flex-1">💾 套用設定</button>
+      <button id="btn_factory" class="btn btn-danger">出廠重設</button>
+    </div>
+
+    <div class="text-center text-[10px] text-[color:var(--txt-muted)] pt-4">
+      雙軌獨立資產再平衡與控盤系統 · DRMS v5.0<br>
+      Local-First · 資料儲存於本機 · 物理隔離雙軌計算
+    </div>
+  </section>
+
+</main>
+
+<script>
+/* =============================================================
+ *  STATE & STORAGE
+ * ============================================================= */
+const LS_KEY = 'drms_v5_state';
+
+const DEFAULT_STATE = {
+  currentPrice: 37.78,
+  lastQuote: 37.78,
+  // Track 1
+  t1:{
+    usCore: 540000,
+    shares: 0,
+    avgPrice: 0,
+    cash: 280000
+  },
+  // Track 2
+  t2:{
+    shares: 0,
+    avgPrice: 0,
+    cash: 334000,
+    isolated: 500000,
+    maTriggered: false
+  },
+  settings:{
+    t1_baseline: 280000,
+    t1_threshold: 15,
+    t2_baseline: 166000,
+    t2_right: 35,
+    t2_strike: 150000,
+    t2_isoBase: 500000,
+    feeRate: 0.1425,
+    taxRate: 0.1
+  },
+  history: [],
+  lastSavedAt: null
+};
+
+let state = loadState();
+
+function loadState(){
+  try{
+    const raw = localStorage.getItem(LS_KEY);
+    if(!raw) return structuredClone(DEFAULT_STATE);
+    const parsed = JSON.parse(raw);
+    return Object.assign(structuredClone(DEFAULT_STATE), parsed,
+      { settings: Object.assign({}, DEFAULT_STATE.settings, parsed.settings||{}),
+        t1: Object.assign({}, DEFAULT_STATE.t1, parsed.t1||{}),
+        t2: Object.assign({}, DEFAULT_STATE.t2, parsed.t2||{}) });
+  }catch(e){ return structuredClone(DEFAULT_STATE); }
+}
+function saveState(){
+  state.lastSavedAt = new Date().toISOString();
+  localStorage.setItem(LS_KEY, JSON.stringify(state));
+}
+
+/* =============================================================
+ *  HELPERS
+ * ============================================================= */
+const fmt = n => (n==null||isNaN(n)) ? '0' : Math.round(n).toLocaleString('en-US');
+const fmt2 = n => (n==null||isNaN(n)) ? '0.00' : Number(n).toFixed(2);
+const pct = n => (n==null||isNaN(n)) ? '0.00%' : (n>=0?'+':'') + Number(n).toFixed(2) + '%';
+const signed = n => (n>=0?'+':'') + fmt(n);
+const $ = sel => document.querySelector(sel);
+const $$ = sel => document.querySelectorAll(sel);
+const todayISO = ()=> new Date().toISOString().slice(0,10);
+
+/* =============================================================
+ *  TRACK 1 CALCULATIONS — Core-Satellite Fixed Symmetric
+ * ============================================================= */
+function calcTrack1(){
+  const p = state.currentPrice || 0;
+  const shares = +state.t1.shares || 0;
+  const avg = +state.t1.avgPrice || 0;
+  const cash = +state.t1.cash || 0;
+  const usCore = +state.t1.usCore || 0;
+  const baseline = +state.settings.t1_baseline || 280000;
+  const thresholdPct = (+state.settings.t1_threshold || 15) / 100;
+
+  const marketValue = shares * p;
+  const cost = shares * avg;
+  const pnl = marketValue - cost;
+  const pnlPct = cost > 0 ? (pnl / cost * 100) : 0;
+
+  const upperBound = baseline * (1 + thresholdPct);   // 322,000 @ 15%
+  const lowerBound = baseline * (1 - thresholdPct);   // 238,000 @ 15%
+
+  // Total assets in T1 (US core is informational but counted toward NAV)
+  const totalT1 = usCore + marketValue + cash;
+  // Stock/cash ratio targets 50:50 (excluding US core, since US core is static)
+  const liquidStock = marketValue;
+  const liquidCash = cash;
+  const liquidTotal = liquidStock + liquidCash;
+  const stockPct = liquidTotal > 0 ? liquidStock / liquidTotal * 100 : 0;
+  const cashPct = liquidTotal > 0 ? liquidCash / liquidTotal * 100 : 0;
+
+  // Signal
+  let signal = null;
+  if (marketValue >= upperBound && upperBound > 0){
+    // Sell signal — sell down to baseline
+    const excessValue = marketValue - baseline;
+    const sharesToSell = p > 0 ? Math.floor(excessValue / p / 1000) * 1000 : 0;
+    const sellAmount = sharesToSell * p;
+    signal = {
+      type: 'sell',
+      title: '超配訊號：建議賣出',
+      shares: sharesToSell,
+      lots: sharesToSell / 1000,
+      amount: sellAmount,
+      newShares: shares - sharesToSell,
+      newCash: cash + sellAmount,
+      avgPrice: avg,
+      pnlPct
+    };
+  } else if (marketValue <= lowerBound && lowerBound > 0 && p > 0){
+    // Buy signal — buy up to baseline
+    const deficitValue = baseline - marketValue;
+    const buyableByCash = Math.min(deficitValue, cash);
+    const sharesToBuy = Math.floor(buyableByCash / p / 1000) * 1000;
+    const buyAmount = sharesToBuy * p;
+    signal = {
+      type: 'buy',
+      title: '低配訊號：建議買入',
+      shares: sharesToBuy,
+      lots: sharesToBuy / 1000,
+      amount: buyAmount,
+      newShares: shares + sharesToBuy,
+      newCash: cash - buyAmount,
+      avgPrice: avg,
+      pnlPct
+    };
+  }
+
+  return { p, shares, avg, cash, usCore, marketValue, cost, pnl, pnlPct,
+           baseline, upperBound, lowerBound, totalT1, stockPct, cashPct, signal };
+}
+
+/* =============================================================
+ *  TRACK 2 CALCULATIONS — Asymmetric High-Timeframe
+ * ============================================================= */
+function calcTrack2(){
+  const p = state.currentPrice || 0;
+  const shares = +state.t2.shares || 0;
+  const avg = +state.t2.avgPrice || 0;
+  const cash = +state.t2.cash || 0;
+  const isolated = +state.t2.isolated || 0;
+  const maTriggered = !!state.t2.maTriggered;
+  const baseline = +state.settings.t2_baseline || 166000;
+  const rightPct = (+state.settings.t2_right || 35) / 100;
+  const strikeAmount = +state.settings.t2_strike || 150000;
+
+  const marketValue = shares * p;
+  const cost = shares * avg;
+  const pnl = marketValue - cost;
+  const pnlPct = cost > 0 ? (pnl / cost * 100) : 0;
+
+  const rightBound = baseline * (1 + rightPct);   // 224,100 @ +35%
+
+  // T2 fuel = cash (isolated is excluded from rebalance fuel)
+  const totalT2_available = marketValue + cash;          // 可動用
+  const totalT2_full = marketValue + cash + isolated;    // 含隔離 (僅資產負債顯示)
+  const stockPct = totalT2_available > 0 ? marketValue / totalT2_available * 100 : 0;
+  const cashPct = totalT2_available > 0 ? cash / totalT2_available * 100 : 0;
+
+  // Signals
+  let signalRight = null, signalLeft = null;
+
+  if (marketValue >= rightBound && rightBound > 0){
+    // 物理湮滅 right
+    const excess = marketValue - baseline;
+    const sharesToSell = p > 0 ? Math.floor(excess / p / 1000) * 1000 : 0;
+    const sellAmount = sharesToSell * p;
+    signalRight = {
+      type: 'sell-annihilate',
+      title: '右側特異停利訊號 · 物理湮滅',
+      shares: sharesToSell,
+      lots: sharesToSell / 1000,
+      amount: sellAmount,
+      newShares: shares - sharesToSell,
+      newCash: cash + sellAmount,
+      directive: '請將此獲利提現，優先執行「物理湮滅」，提前償還信貸本金',
+      pnlPct
+    };
+  }
+
+  if (maTriggered && cash >= strikeAmount){
+    const sharesToBuy = p > 0 ? Math.floor(strikeAmount / p / 1000) * 1000 : 0;
+    const buyAmount = sharesToBuy * p;
+    signalLeft = {
+      type: 'buy-hunt',
+      title: '左側獵殺買入訊號 (60/120MA 已觸發)',
+      shares: sharesToBuy,
+      lots: sharesToBuy / 1000,
+      amount: buyAmount,
+      newShares: shares + sharesToBuy,
+      newCash: cash - buyAmount,
+      directive: '自 334,000 元特攻現金中，單筆抽調 150,000 元砸入底層掃蕩流動性',
+      pnlPct
+    };
+  } else if (maTriggered && cash < strikeAmount){
+    signalLeft = {
+      type: 'buy-hunt-insufficient',
+      title: '左側獵殺訊號 · 現金不足',
+      shares: 0, lots: 0, amount: strikeAmount,
+      directive: `MA 已觸發但特攻現金 ${fmt(cash)} 元 < 需求 ${fmt(strikeAmount)} 元`,
+      insufficient: true
+    };
+  }
+
+  return { p, shares, avg, cash, isolated, marketValue, cost, pnl, pnlPct,
+           baseline, rightBound, strikeAmount, maTriggered,
+           totalT2_available, totalT2_full, stockPct, cashPct,
+           signalRight, signalLeft };
+}
+
+/* =============================================================
+ *  RENDER : TAB 1 HOLDINGS (live recompute)
+ * ============================================================= */
+function renderHoldings(){
+  const t1 = calcTrack1();
+  const t2 = calcTrack2();
+
+  // Header price
+  $('#hdrPrice').textContent = fmt2(state.currentPrice);
+  const delta = state.currentPrice - state.lastQuote;
+  const deltaPct = state.lastQuote > 0 ? delta / state.lastQuote * 100 : 0;
+  $('#lastQuote').textContent = fmt2(state.lastQuote);
+  const dEl = $('#quoteDelta');
+  dEl.textContent = `${signed(delta.toFixed(2))} (${pct(deltaPct)})`;
+  dEl.style.color = delta>0 ? 'var(--green)' : delta<0 ? 'var(--pink)' : 'var(--txt-muted)';
+
+  // T1
+  $('#out_t1_marketValue').textContent = fmt(t1.marketValue) + ' 元';
+  const pnlEl1 = $('#out_t1_pnl');
+  pnlEl1.textContent = `${signed(t1.pnl.toFixed(0))} 元 (${pct(t1.pnlPct)})`;
+  pnlEl1.style.color = t1.pnl>0 ? 'var(--green)' : t1.pnl<0 ? 'var(--pink)' : 'var(--txt-muted)';
+
+  // T2
+  $('#out_t2_marketValue').textContent = fmt(t2.marketValue) + ' 元';
+  const pnlEl2 = $('#out_t2_pnl');
+  pnlEl2.textContent = `${signed(t2.pnl.toFixed(0))} 元 (${pct(t2.pnlPct)})`;
+  pnlEl2.style.color = t2.pnl>0 ? 'var(--green)' : t2.pnl<0 ? 'var(--pink)' : 'var(--txt-muted)';
+
+  // MA switch visual
+  $('#maSwitch').classList.toggle('on', !!state.t2.maTriggered);
+
+  // Time
+  $('#hdrTime').textContent = state.lastSavedAt
+    ? '最近核算 ' + new Date(state.lastSavedAt).toLocaleString('zh-TW', {hour:'2-digit', minute:'2-digit', month:'2-digit', day:'2-digit'})
+    : '未核算';
+}
+
+/* =============================================================
+ *  RENDER : TAB 2 HEALTH
+ * ============================================================= */
+function buildSignalCard(s, trackNum){
+  if(!s){
+    return `<div class="card p-4">
+      <div class="flex items-center justify-between">
+        <span class="text-sm text-[color:var(--txt-dim)]">${trackNum===1?'第一軌':'第二軌'} · 訊號</span>
+        <span class="text-xs text-[color:var(--green)]">✓ 部位平衡</span>
+      </div>
+      <div class="text-xs text-[color:var(--txt-muted)] mt-1">目前位於閾值區間內，無需操作</div>
+    </div>`;
+  }
+
+  const isBuy = (s.type === 'buy' || s.type === 'buy-hunt');
+  const isInsufficient = s.type === 'buy-hunt-insufficient';
+  const isAnnihilate = s.type === 'sell-annihilate';
+  let glow = isBuy ? 'card-glow-green' : (isAnnihilate ? 'card-glow-amber' : 'card-glow-red');
+  let symbol = isBuy ? '▲' : (isAnnihilate ? '⚡' : '▼');
+  let color = isBuy ? 'var(--green)' : (isAnnihilate ? 'var(--gold)' : 'var(--pink)');
+  let directionTxt = isBuy ? '買入' : '賣出';
+  let actionColor = isBuy ? 'var(--green)' : 'var(--pink)';
+
+  if (isInsufficient){
+    return `<div class="card card-glow-red p-4 pulse">
+      <div class="flex items-center gap-2 text-[color:var(--pink)] font-semibold">⚠ ${s.title}</div>
+      <div class="text-xs text-[color:var(--txt-dim)] mt-2">${s.directive}</div>
+    </div>`;
+  }
+
+  return `<div class="card ${glow} p-4 space-y-3 pulse">
+    <div class="flex items-center gap-2 font-semibold text-[15px]" style="color:${color}">
+      <span class="text-xl">${symbol}</span>
+      <span>${s.title}：建議${directionTxt} ${fmt(s.shares)} 股（${s.lots} 張）</span>
+    </div>
+    ${s.directive ? `<div class="card-inset p-2 text-[12px] text-[color:var(--gold)] leading-relaxed">💡 ${s.directive}</div>` : ''}
+    <div class="border-t border-[color:var(--line-soft)] -mx-4 px-4 pt-3 space-y-2 text-[13.5px]">
+      <div class="flex justify-between"><span class="text-[color:var(--txt-dim)]">操作方向</span><span class="font-bold" style="color:${actionColor}">${directionTxt}</span></div>
+      <div class="flex justify-between"><span class="text-[color:var(--txt-dim)]">參考股價</span><span class="font-mono font-bold text-[color:var(--gold)]">${fmt2(state.currentPrice)} 元</span></div>
+      <div class="flex justify-between"><span class="text-[color:var(--txt-dim)]">操作張數</span><span class="font-mono font-bold text-[color:var(--gold)]">${s.lots} 張（${fmt(s.shares)} 股）</span></div>
+      <div class="flex justify-between"><span class="text-[color:var(--txt-dim)]">操作金額</span><span class="font-mono font-bold text-[color:var(--gold)]">${fmt(s.amount)} 元</span></div>
+      <div class="flex justify-between"><span class="text-[color:var(--txt-dim)]">操作後持股</span><span class="font-mono font-bold">${fmt(s.newShares)} 股</span></div>
+      <div class="flex justify-between"><span class="text-[color:var(--txt-dim)]">操作後現金</span><span class="font-mono font-bold">${fmt(s.newCash)} 元</span></div>
+      ${s.pnlPct!=null?`<div class="flex justify-between"><span class="text-[color:var(--txt-dim)]">操作均價 / 損益</span><span class="font-mono font-bold">${fmt2(s.avgPrice||state.t1.avgPrice||state.t2.avgPrice)} 元 (${pct(s.pnlPct)})</span></div>`:''}
+    </div>
+  </div>`;
+}
+
+function renderHealth(){
+  const t1 = calcTrack1();
+  const t2 = calcTrack2();
+
+  // KPIs
+  const nav = t1.totalT1 + t2.totalT2_full;
+  const stock = t1.marketValue + t1.usCore + t2.marketValue;
+  const cash = t1.cash + t2.cash + t2.isolated;
+  $('#kpi_nav').textContent = (nav/1e6 >= 10) ? (nav/1e6).toFixed(2)+'M' : fmt(nav);
+  $('#kpi_stock').textContent = (stock/1e6 >= 10) ? (stock/1e6).toFixed(2)+'M' : fmt(stock);
+  $('#kpi_cash').textContent = (cash/1e6 >= 10) ? (cash/1e6).toFixed(2)+'M' : fmt(cash);
+
+  // T1 bar
+  $('#t1_stockPct').textContent = t1.stockPct.toFixed(1) + '%';
+  $('#t1_cashPct').textContent = t1.cashPct.toFixed(1) + '%';
+  $('#t1_bar').style.width = t1.stockPct + '%';
+  $('#t1_us').textContent = fmt(t1.usCore);
+  $('#t1_sat').textContent = fmt(t1.marketValue);
+  $('#t1_cash').textContent = fmt(t1.cash);
+
+  // T2 bar
+  $('#t2_stockPct').textContent = t2.stockPct.toFixed(1) + '%';
+  $('#t2_cashPct').textContent = t2.cashPct.toFixed(1) + '%';
+  $('#t2_bar').style.width = t2.stockPct + '%';
+  $('#t2_sat').textContent = fmt(t2.marketValue);
+  $('#t2_cash').textContent = fmt(t2.cash);
+  $('#t2_iso').textContent = fmt(t2.isolated);
+
+  // Signal boxes
+  $('#t1_signalBox').innerHTML = buildSignalCard(t1.signal, 1);
+  // Combine T2 right & left signals
+  let t2Html = '';
+  if (t2.signalRight) t2Html += buildSignalCard(t2.signalRight, 2);
+  if (t2.signalLeft)  t2Html += buildSignalCard(t2.signalLeft, 2);
+  if (!t2Html) t2Html = buildSignalCard(null, 2);
+  $('#t2_signalBox').innerHTML = t2Html;
+}
+
+/* =============================================================
+ *  RENDER : TAB 4 BALANCE
+ * ============================================================= */
+function row(label, value, color){
+  return `<div class="flex items-center justify-between py-1">
+    <span class="text-sm text-[color:var(--txt-dim)]">${label}</span>
+    <span class="font-mono font-bold text-base" ${color?`style="color:${color}"`:''}>${fmt(value)} 元</span>
+  </div>`;
+}
+
+function renderBalance(){
+  const t1 = calcTrack1();
+  const t2 = calcTrack2();
+
+  $('#balance_t1').innerHTML =
+    row('🇺🇸 美股核心艙', t1.usCore) +
+    row('🇹🇼 台股衛星艙 (即時市值)', t1.marketValue, 'var(--cyan)') +
+    row('💵 自有防禦現金庫', t1.cash, 'var(--green)') +
+    row('📊 衛星持倉損益 (相對均價)', t1.pnl, t1.pnl>=0?'var(--green)':'var(--pink)');
+
+  $('#balance_t1_total').textContent = fmt(t1.totalT1) + ' 元';
+
+  $('#balance_t2').innerHTML =
+    row('⚡ 信貸正二底倉 (即時市值)', t2.marketValue, 'var(--purple)') +
+    row('🎯 特攻現金庫', t2.cash, 'var(--amber)') +
+    row('🔒 隔離還款金 (凍結)', t2.isolated, 'var(--pink)') +
+    row('📊 底倉損益 (相對均價)', t2.pnl, t2.pnl>=0?'var(--green)':'var(--pink)');
+
+  $('#balance_t2_total').textContent = fmt(t2.totalT2_full) + ' 元';
+  $('#balance_t2_avail').textContent = fmt(t2.totalT2_available) + ' 元';
+
+  $('#balance_total').textContent = fmt(t1.totalT1 + t2.totalT2_full) + ' 元';
+}
+
+/* =============================================================
+ *  RENDER : TAB 3 TREND CHART
+ * ============================================================= */
+let trendChart = null;
+let trendActiveTrack = 1;
+
+function calcEntryMetrics(entry){
+  // entry: {date, price, track, shares, avg}
+  const shares = entry.shares;
+  const avg = entry.avg;
+  const price = entry.price;
+  const feeRate = (state.settings.feeRate || 0.1425) / 100;
+  const taxRate = (state.settings.taxRate || 0.1) / 100;
+
+  const buyCost = shares * avg;
+  const sellRev = shares * price;
+  const buyFee  = Math.max(20, Math.round(buyCost * feeRate));   // min 20
+  const sellFee = Math.max(20, Math.round(sellRev * feeRate));
+  const tax     = Math.round(sellRev * taxRate);
+  const fees    = buyFee + sellFee + tax;
+  const grossPnL = sellRev - buyCost;
+  const netPnL = grossPnL - fees;
+  const netRate = buyCost > 0 ? netPnL / buyCost * 100 : 0;
+  const grossRate = buyCost > 0 ? grossPnL / buyCost * 100 : 0;
+  return { fees, grossPnL, netPnL, netRate, grossRate };
+}
+
+function renderTrend(){
+  const track = trendActiveTrack;
+  $$('#tab-trend .track-pick').forEach(b=>{
+    const t = +b.dataset.track;
+    b.classList.toggle('btn-primary', t===track);
+  });
+
+  const trackData = track===1 ? state.t1 : state.t2;
+  $('#trend_shares').textContent = fmt(trackData.shares);
+  $('#trend_avg').textContent = fmt2(trackData.avgPrice);
+  $('#trend_price').textContent = 'NT$' + fmt2(state.currentPrice);
+
+  // Compute "today" hypothetical
+  const todayEntry = { date: todayISO(), price: state.currentPrice, track, shares: trackData.shares, avg: trackData.avgPrice };
+  const tm = calcEntryMetrics(todayEntry);
+  $('#trend_netPnL').textContent = signed(tm.netPnL);
+  $('#trend_fees').textContent = fmt(tm.fees);
+  $('#trend_netRate').textContent = pct(tm.netRate);
+  $('#trend_grossRate').textContent = pct(tm.grossRate);
+
+  // History for this track
+  const rows = state.history.filter(h => h.track === track);
+  let high = -Infinity, low = Infinity, highIdx = '—', lowIdx = '—';
+  rows.forEach((r,i)=>{
+    if (r.netPnL > high){ high = r.netPnL; highIdx = i+1; }
+    if (r.netPnL < low) { low  = r.netPnL; lowIdx  = i+1; }
+  });
+  if (rows.length === 0){ high = 0; low = 0; }
+  $('#trend_high').textContent = signed(high);
+  $('#trend_low').textContent  = signed(low);
+  $('#trend_highDay').textContent = highIdx;
+  $('#trend_lowDay').textContent  = lowIdx;
+
+  // Chart
+  const labels = rows.map((_,i)=>i+1);
+  const priceData = rows.map(r=>r.price);
+  const pnlData = rows.map(r=>r.netPnL);
+
+  const ctx = $('#trendChart').getContext('2d');
+  if (trendChart) trendChart.destroy();
+  trendChart = new Chart(ctx, {
+    data:{
+      labels,
+      datasets:[
+        { type:'bar', label:'淨損益', data:pnlData, yAxisID:'y1',
+          backgroundColor:'rgba(255,107,157,.75)', borderColor:'rgba(255,107,157,1)',
+          borderWidth:1, borderRadius:4, barPercentage:0.55, categoryPercentage:0.7 },
+        { type:'line', label:'當日市價', data:priceData, yAxisID:'y',
+          borderColor:'rgba(92,212,255,1)', backgroundColor:'rgba(92,212,255,.15)',
+          borderWidth:2.5, pointRadius:4, pointBackgroundColor:'rgba(92,212,255,1)',
+          pointBorderColor:'#fff', pointBorderWidth:1.5, tension:.3, fill:false }
+      ]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      interaction:{ mode:'index', intersect:false },
+      plugins:{
+        legend:{ labels:{ color:'#8b97b4', usePointStyle:true, pointStyle:'rect', font:{ size:11 } } },
+        tooltip:{
+          backgroundColor:'rgba(11,16,27,.95)', borderColor:'#1f2c4a', borderWidth:1,
+          padding:10, titleColor:'#5cd4ff', bodyColor:'#e8eefc',
+          callbacks:{
+            label: c => {
+              if (c.dataset.label==='當日市價') return ` 當日市價 NT$${fmt2(c.raw)}`;
+              return ` 淨損益 ${signed(c.raw)}`;
+            }
+          }
+        }
+      },
+      scales:{
+        x:{ ticks:{ color:'#5a6885', font:{size:11} }, grid:{ display:false } },
+        y:{
+          position:'left', title:{ display:true, text:'當日市價 (NT$)', color:'#5a6885', font:{size:10} },
+          ticks:{ color:'#5a6885', font:{size:10}, callback: v=>'$'+v },
+          grid:{ color:'rgba(31,44,74,.4)' }
+        },
+        y1:{
+          position:'right', title:{ display:true, text:'淨損益 (NT$)', color:'#5a6885', font:{size:10} },
+          ticks:{ color:'#5a6885', font:{size:10}, callback: v=> (v>=1000?(v/1000).toFixed(0)+'k':v) },
+          grid:{ display:false }
+        }
+      }
+    }
+  });
+}
+
+/* =============================================================
+ *  RENDER : TAB 5 HISTORY
+ * ============================================================= */
+let histFilter = 'all'; // 'all' | 1 | 2
+
+function renderHistory(){
+  const tbody = $('#histBody');
+  const rows = state.history.filter(h => histFilter==='all' ? true : h.track===histFilter);
+  if (!rows.length){
+    tbody.innerHTML = `<tr><td colspan="5" class="text-center text-[color:var(--txt-muted)]" style="padding:30px;">尚無紀錄</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map((r,i)=>{
+    const pnlColor = r.netPnL>=0?'var(--pink)':'var(--green)';
+    const rateColor = r.netRate>=0?'var(--pink)':'var(--green)';
+    const trackBadge = r.track===1
+      ? '<span class="ribbon ribbon-1" style="font-size:9px;padding:2px 6px;">T1</span>'
+      : '<span class="ribbon ribbon-2" style="font-size:9px;padding:2px 6px;">T2</span>';
+    return `<tr>
+      <td>${i+1}</td>
+      <td>${trackBadge}</td>
+      <td style="color:var(--cyan)">${fmt2(r.price)}</td>
+      <td style="color:${pnlColor}">${signed(r.netPnL)}</td>
+      <td style="color:${rateColor}">${pct(r.netRate)}</td>
+    </tr>`;
+  }).join('');
+}
+
+/* =============================================================
+ *  RENDER ALL
+ * ============================================================= */
+function renderAll(){
+  renderHoldings();
+  renderHealth();
+  renderBalance();
+  renderHistory();
+  renderTrend();
+}
+
+/* =============================================================
+ *  INPUT BINDINGS
+ * ============================================================= */
+function bindInput(id, getter, setter){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.value = getter();
+  el.addEventListener('input', ()=>{
+    const v = el.value === '' ? 0 : parseFloat(el.value);
+    setter(isNaN(v) ? 0 : v);
+    renderHoldings();   // live recompute on holdings tab
+  });
+}
+
+function initBindings(){
+  // current price
+  bindInput('inp_currentPrice', ()=>state.currentPrice, v=>{ state.currentPrice = v; });
+
+  // T1
+  bindInput('inp_t1_usCore', ()=>state.t1.usCore, v=>{ state.t1.usCore = v; });
+  bindInput('inp_t1_shares', ()=>state.t1.shares, v=>{ state.t1.shares = v; });
+  bindInput('inp_t1_avg',    ()=>state.t1.avgPrice, v=>{ state.t1.avgPrice = v; });
+  bindInput('inp_t1_cash',   ()=>state.t1.cash, v=>{ state.t1.cash = v; });
+
+  // T2
+  bindInput('inp_t2_shares',   ()=>state.t2.shares, v=>{ state.t2.shares = v; });
+  bindInput('inp_t2_avg',      ()=>state.t2.avgPrice, v=>{ state.t2.avgPrice = v; });
+  bindInput('inp_t2_cash',     ()=>state.t2.cash, v=>{ state.t2.cash = v; });
+  bindInput('inp_t2_isolated', ()=>state.t2.isolated, v=>{ state.t2.isolated = v; });
+
+  // MA switch
+  $('#maSwitch').addEventListener('click', ()=>{
+    state.t2.maTriggered = !state.t2.maTriggered;
+    saveState(); renderAll();
+  });
+
+  // Settings
+  ['set_t1_baseline','set_t1_threshold','set_t2_baseline','set_t2_right',
+   'set_t2_strike','set_t2_isoBase','set_feeRate','set_taxRate'].forEach(id=>{
+    const key = id.replace('set_','');
+    const el = document.getElementById(id);
+    if(!el) return;
+    el.value = state.settings[key];
+    el.addEventListener('input', ()=>{
+      const v = el.value==='' ? 0 : parseFloat(el.value);
+      state.settings[key] = isNaN(v)?0:v;
+    });
+  });
+
+  // Save (re-quote)
+  $('#btn_save').addEventListener('click', ()=>{
+    state.lastQuote = state.currentPrice;
+    saveState(); renderAll();
+    flash($('#btn_save'), '✓ 已核算');
+  });
+
+  // Reset initial
+  $('#btn_reset').addEventListener('click', ()=>{
+    if(!confirm('將持倉欄位重設為初始基準值？(美核 540k / T1 現金 280k / T2 現金 334k / 隔離 500k)')) return;
+    state.t1 = { usCore:540000, shares:0, avgPrice:0, cash:280000 };
+    state.t2 = { shares:0, avgPrice:0, cash:334000, isolated:500000, maTriggered:false };
+    saveState();
+    // re-init input values
+    document.getElementById('inp_t1_usCore').value = state.t1.usCore;
+    document.getElementById('inp_t1_shares').value = state.t1.shares;
+    document.getElementById('inp_t1_avg').value = state.t1.avgPrice;
+    document.getElementById('inp_t1_cash').value = state.t1.cash;
+    document.getElementById('inp_t2_shares').value = state.t2.shares;
+    document.getElementById('inp_t2_avg').value = state.t2.avgPrice;
+    document.getElementById('inp_t2_cash').value = state.t2.cash;
+    document.getElementById('inp_t2_isolated').value = state.t2.isolated;
+    renderAll();
+  });
+
+  // Save settings
+  $('#btn_saveSettings').addEventListener('click', ()=>{
+    saveState(); renderAll();
+    flash($('#btn_saveSettings'), '✓ 已套用');
+  });
+
+  // Factory reset
+  $('#btn_factory').addEventListener('click', ()=>{
+    if(!confirm('清除所有資料，包含設定與歷史紀錄？')) return;
+    localStorage.removeItem(LS_KEY);
+    state = structuredClone(DEFAULT_STATE);
+    location.reload();
+  });
+
+  // Track picker for trend tab
+  $$('.track-pick').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      const t = +b.dataset.track;
+      // If this is the trend tab buttons (not the history filter ones)
+      if (b.closest('#tab-trend')){
+        trendActiveTrack = t;
+        renderTrend();
+      } else if (b.closest('#tab-history')){
+        histFilter = t;
+        $('#histFilterAll').classList.remove('btn-primary');
+        b.classList.add('btn-primary');
+        $$('#tab-history .track-pick').forEach(x=>{ if(x!==b) x.classList.remove('btn-primary'); });
+        renderHistory();
+      }
+    });
+  });
+
+  // History filter All
+  $('#histFilterAll').addEventListener('click', ()=>{
+    histFilter = 'all';
+    $('#histFilterAll').classList.add('btn-primary');
+    $$('#tab-history .track-pick').forEach(x=>x.classList.remove('btn-primary'));
+    renderHistory();
+  });
+
+  // Add entry
+  $('#entry_date').value = todayISO();
+  $('#entry_add').addEventListener('click', ()=>{
+    const dateV = $('#entry_date').value || todayISO();
+    const priceV = parseFloat($('#entry_price').value);
+    if (!priceV || isNaN(priceV)){ alert('請輸入有效的當日市價'); return; }
+    const trackData = trendActiveTrack===1 ? state.t1 : state.t2;
+    const metrics = calcEntryMetrics({ date:dateV, price:priceV, track:trendActiveTrack, shares:trackData.shares, avg:trackData.avgPrice });
+    state.history.push({
+      date: dateV, price: priceV, track: trendActiveTrack,
+      shares: trackData.shares, avg: trackData.avgPrice,
+      ...metrics
+    });
+    saveState();
+    $('#entry_price').value = '';
+    renderTrend(); renderHistory();
+  });
+
+  // Export CSV
+  $('#btn_exportCsv').addEventListener('click', ()=>{
+    if (!state.history.length){ alert('無紀錄可匯出'); return; }
+    const head = ['日期','軌道','當日市價','持股數','均價','毛損益','手續費+稅','淨損益','淨報酬率%'];
+    const lines = [head.join(',')];
+    state.history.forEach(r=>{
+      lines.push([r.date, 'T'+r.track, r.price, r.shares, r.avg, r.grossPnL, r.fees, r.netPnL, r.netRate.toFixed(2)].join(','));
+    });
+    const blob = new Blob(['\ufeff'+lines.join('\n')], {type:'text/csv;charset=utf-8'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `drms_v5_history_${todayISO()}.csv`;
+    a.click();
+  });
+
+  // Clear history
+  $('#btn_clearHist').addEventListener('click', ()=>{
+    if(!confirm('清除所有歷史紀錄？此動作無法復原')) return;
+    state.history = [];
+    saveState(); renderTrend(); renderHistory();
+  });
+}
+
+function flash(btn, text){
+  const orig = btn.innerHTML;
+  btn.innerHTML = text;
+  btn.disabled = true;
+  setTimeout(()=>{ btn.innerHTML = orig; btn.disabled = false; }, 1000);
+}
+
+/* =============================================================
+ *  TABS
+ * ============================================================= */
+function switchTab(tabId){
+  $$('.tab-btn').forEach(b=> b.classList.toggle('active', b.dataset.tab === tabId));
+  ['tab-holdings','tab-health','tab-trend','tab-balance','tab-history','tab-settings'].forEach(id=>{
+    const el = document.getElementById(id);
+    el.classList.toggle('hidden-tab', id !== tabId);
+  });
+  // Re-render the entering tab in case data changed
+  if (tabId==='tab-health') renderHealth();
+  if (tabId==='tab-balance') renderBalance();
+  if (tabId==='tab-trend') renderTrend();
+  if (tabId==='tab-history') renderHistory();
+  if (tabId==='tab-holdings') renderHoldings();
+}
+
+$$('.tab-btn').forEach(b=> b.addEventListener('click', ()=> switchTab(b.dataset.tab)));
+
+/* =============================================================
+ *  BOOT
+ * ============================================================= */
+// Mobile-friendly numeric keyboard
+document.querySelectorAll('input[type=number]').forEach(el=>{
+  el.setAttribute('inputmode', el.step && el.step !== '1' ? 'decimal' : 'numeric');
+  el.setAttribute('autocomplete', 'off');
+});
+
+initBindings();
+renderAll();
+
+</script>
+</body>
+</html>
