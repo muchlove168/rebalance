@@ -301,12 +301,13 @@ main{padding:32px 48px 64px;max-width:1480px;margin:0 auto}
 
     <div class="form-grid">
       <div class="field">
-        <label>基準價邏輯 <span class="hint">trigger basis</span></label>
+        <label>基準價邏輯 <span class="hint">僅影響上漲觸發</span></label>
         <select id="basisMode">
           <option value="last">上次交易價（每次再平衡後重設）</option>
           <option value="cost">成本均價（加碼時更新）</option>
           <option value="initial">期初進場價（永不變動）</option>
         </select>
+        <div class="sub">下跌觸發固定使用「歷史滾動高點」往下算</div>
       </div>
       <div class="field">
         <label>觸發判定週期</label>
@@ -487,7 +488,7 @@ const STATE = {
     {
       id: 's2', name: '策略 B',
       rules: [
-        { id: 1, enabled: true, dir: 'up', pct: 10, basis: '00631L', action: 'sell', target: '0050', amtType: 'pos', amtVal: 10 },
+        { id: 1, enabled: true, dir: 'up', pct: 10, basis: '00631L', action: 'sell', target: '0050', amtType: 'profit', amtVal: 50 },
         { id: 2, enabled: true, dir: 'down', pct: 10, basis: '00631L', action: 'buy', target: '00631L', amtType: 'res', amtVal: 25 }
       ]
     }
@@ -552,6 +553,14 @@ function runBacktest(strategy, startIdx, endIdx, config) {
     }
   };
 
+  // 每條下跌規則獨立追蹤觸發標的的歷史滾動高點
+  const rollingPeak = {};
+  strategy.rules.forEach(r => {
+    if (r.dir === 'down') {
+      rollingPeak[r.id] = r.basis === '0050' ? p0050_start : p631_start;
+    }
+  });
+
   // Initial NAV
   const initialNAV = shares0050 * p0050_start + shares631 * p631_start + cash;
 
@@ -561,15 +570,30 @@ function runBacktest(strategy, startIdx, endIdx, config) {
     const p0 = PRICE_DATA['0050'][i];
     const p6 = PRICE_DATA['00631L'][i];
 
-    // 對於第一個月（初始），不執行規則，只記錄 NAV
+    // 先更新每條下跌規則的 rolling peak（規則檢查前）
+    for (const rule of strategy.rules) {
+      if (rule.dir === 'down' && rule.enabled) {
+        const px = rule.basis === '0050' ? p0 : p6;
+        if (px > rollingPeak[rule.id]) rollingPeak[rule.id] = px;
+      }
+    }
+
+    // 第一個月（初始）不執行規則，只記錄 NAV
     if (i > startIdx) {
-      // 評估每條規則
       for (const rule of strategy.rules) {
         if (!rule.enabled) continue;
 
-        const basis = getBasis(rule);
         const currentPrice = rule.basis === '0050' ? p0 : p6;
-        const change = (currentPrice - basis) / basis;
+        let basis, change;
+        if (rule.dir === 'down') {
+          // 下跌規則：從歷史滾動高點往下算
+          basis = rollingPeak[rule.id];
+          change = (currentPrice - basis) / basis;
+        } else {
+          // 上漲規則：用全域基準價邏輯
+          basis = getBasis(rule);
+          change = (currentPrice - basis) / basis;
+        }
 
         let triggered = false;
         if (rule.dir === 'up' && change >= rule.pct / 100) triggered = true;
@@ -579,49 +603,55 @@ function runBacktest(strategy, startIdx, endIdx, config) {
 
         // 執行動作
         if (rule.action === 'sell') {
-          // 賣出 target 的 amtVal % 部位
-          if (rule.target === '0050') {
-            if (s0050 <= 0) continue;
-            const sellShares = s0050 * (rule.amtVal / 100);
-            const grossProceeds = sellShares * p0;
-            const netProceeds = grossProceeds * (1 - feeSell);
-            s0050 -= sellShares;
-            cash += netProceeds;
-            events.push({ month: i, type: 'sell', asset: '0050', shares: sellShares, price: p0, proceeds: netProceeds, ruleId: rule.id, ruleName: `R${rule.id}` });
-          } else {
-            if (s631 <= 0) continue;
-            const sellShares = s631 * (rule.amtVal / 100);
-            const grossProceeds = sellShares * p6;
-            const netProceeds = grossProceeds * (1 - feeSell);
-            s631 -= sellShares;
-            cash += netProceeds;
-            events.push({ month: i, type: 'sell', asset: '00631L', shares: sellShares, price: p6, proceeds: netProceeds, ruleId: rule.id, ruleName: `R${rule.id}` });
+          const isA = rule.target === '0050';
+          const sh = isA ? s0050 : s631;
+          const px = isA ? p0 : p6;
+          const cb = isA ? cost0050 : cost631;
+          if (sh <= 0) continue;
+
+          let sellShares;
+          if (rule.amtType === 'profit') {
+            const marketValue = sh * px;
+            const costTotal = sh * cb;
+            const profit = marketValue - costTotal;
+            if (profit <= 0) continue;  // 沒獲利則跳過
+            const takeOutValue = profit * (100 - rule.amtVal) / 100;  // amtVal = 留下 %
+            sellShares = takeOutValue / px;
+            if (sellShares > sh) sellShares = sh;
+          } else {  // 'pos'
+            sellShares = sh * (rule.amtVal / 100);
           }
+          if (sellShares <= 0) continue;
+          const netProceeds = sellShares * px * (1 - feeSell);
+          if (isA) s0050 -= sellShares; else s631 -= sellShares;
+          cash += netProceeds;
+          events.push({ month: i, type: 'sell', asset: rule.target, shares: sellShares, price: px, proceeds: netProceeds, ruleId: rule.id, ruleName: `R${rule.id}`, amtType: rule.amtType });
         } else { // buy
-          // 用 amtVal % 的現金去買 target
           if (cash <= 0) continue;
           const useCash = cash * (rule.amtVal / 100);
-          if (useCash < 1) continue;  // 太小忽略
-          if (rule.target === '0050') {
-            const buyShares = (useCash / (1 + feeBuy)) / p0;
-            // 更新成本均價
-            const newTotalCost = cost0050 * s0050 + buyShares * p0 * (1 + feeBuy);
+          if (useCash < 1) continue;
+          const isA = rule.target === '0050';
+          const px = isA ? p0 : p6;
+          const buyShares = (useCash / (1 + feeBuy)) / px;
+          if (isA) {
+            const newTotalCost = cost0050 * s0050 + buyShares * px * (1 + feeBuy);
             s0050 += buyShares;
-            cost0050 = s0050 > 0 ? newTotalCost / s0050 : p0;
-            cash -= useCash;
-            events.push({ month: i, type: 'buy', asset: '0050', shares: buyShares, price: p0, cost: useCash, ruleId: rule.id, ruleName: `R${rule.id}` });
+            cost0050 = s0050 > 0 ? newTotalCost / s0050 : px;
           } else {
-            const buyShares = (useCash / (1 + feeBuy)) / p6;
-            const newTotalCost = cost631 * s631 + buyShares * p6 * (1 + feeBuy);
+            const newTotalCost = cost631 * s631 + buyShares * px * (1 + feeBuy);
             s631 += buyShares;
-            cost631 = s631 > 0 ? newTotalCost / s631 : p6;
-            cash -= useCash;
-            events.push({ month: i, type: 'buy', asset: '00631L', shares: buyShares, price: p6, cost: useCash, ruleId: rule.id, ruleName: `R${rule.id}` });
+            cost631 = s631 > 0 ? newTotalCost / s631 : px;
           }
+          cash -= useCash;
+          events.push({ month: i, type: 'buy', asset: rule.target, shares: buyShares, price: px, cost: useCash, ruleId: rule.id, ruleName: `R${rule.id}` });
         }
 
-        // 若是 'last' 模式，重設該規則的 basis 為當前觸發資產價格
-        if (config.basisMode === 'last') {
+        // 觸發後重設邏輯
+        if (rule.dir === 'down') {
+          // 下跌規則：peak 重設為當前價，避免單波下跌連續觸發
+          rollingPeak[rule.id] = currentPrice;
+        } else if (config.basisMode === 'last') {
+          // 上漲規則 + last 模式：重設 basis
           ruleBasis[rule.id] = currentPrice;
         }
       }
@@ -907,6 +937,25 @@ function renderRules() {
       </thead>
       <tbody>`;
   s.rules.forEach((r, idx) => {
+    // 數量來源選項依動作動態變化
+    let amtTypeOpts;
+    if (r.action === 'sell') {
+      amtTypeOpts = `
+        <option value="pos" ${r.amtType==='pos'?'selected':''}>持倉百分比</option>
+        <option value="profit" ${r.amtType==='profit'?'selected':''}>目前獲利</option>`;
+    } else {
+      amtTypeOpts = `<option value="res" ${r.amtType==='res'?'selected':''}>預備金百分比</option>`;
+    }
+    // 數量欄位依 amtType 切換 input/select
+    let amtField;
+    if (r.amtType === 'profit') {
+      const ratios = [80,70,60,50,40,30,20];
+      amtField = `<select data-edit="${idx}.amtVal">${
+        ratios.map(v => `<option value="${v}" ${+r.amtVal===v?'selected':''}>${v}/${100-v}</option>`).join('')
+      }</select>`;
+    } else {
+      amtField = `<input type="number" value="${r.amtVal}" step="1" min="1" max="100" data-edit="${idx}.amtVal">`;
+    }
     html += `
       <tr class="${r.enabled ? '' : 'disabled'}" data-ridx="${idx}">
         <td><div class="toggle ${r.enabled ? 'on' : ''}" data-toggle="${idx}"></div></td>
@@ -936,12 +985,9 @@ function renderRules() {
           </select>
         </td>
         <td>
-          <select data-edit="${idx}.amtType">
-            <option value="pos" ${r.amtType==='pos'?'selected':''}>持倉百分比</option>
-            <option value="res" ${r.amtType==='res'?'selected':''}>預備金百分比</option>
-          </select>
+          <select data-edit="${idx}.amtType">${amtTypeOpts}</select>
         </td>
-        <td><input type="number" value="${r.amtVal}" step="1" min="1" max="100" data-edit="${idx}.amtVal"></td>
+        <td>${amtField}</td>
         <td><button class="btn-icon danger" data-rmrule="${idx}">×</button></td>
       </tr>`;
   });
@@ -963,7 +1009,25 @@ function renderRules() {
     el.addEventListener('change', () => {
       const [idx, field] = el.dataset.edit.split('.');
       const val = el.type === 'number' ? parseFloat(el.value) : el.value;
-      s.rules[+idx][field] = val;
+      const rule = s.rules[+idx];
+      rule[field] = val;
+
+      // 動作改變：自動修正不合理的 amtType
+      if (field === 'action') {
+        if (rule.action === 'sell' && rule.amtType === 'res') {
+          rule.amtType = 'pos'; rule.amtVal = 20;
+        } else if (rule.action === 'buy' && (rule.amtType === 'pos' || rule.amtType === 'profit')) {
+          rule.amtType = 'res'; rule.amtVal = 25;
+        }
+        renderRules();
+      }
+      // amtType 改變：重設 amtVal 預設值
+      if (field === 'amtType') {
+        if (rule.amtType === 'profit') rule.amtVal = 50;
+        else if (rule.amtType === 'pos') rule.amtVal = 20;
+        else if (rule.amtType === 'res') rule.amtVal = 25;
+        renderRules();
+      }
     });
   });
   container.querySelectorAll('[data-rmrule]').forEach(el => {
